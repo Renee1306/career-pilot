@@ -125,6 +125,14 @@ This means: visiting the Job Explanation tab, then the Typical Day tab, then Res
 all accumulate onto the *same* analysis row rather than creating three separate rows or
 clobbering each other. `GET /jobs/{id}/analysis` returns that single row (or null).
 
+**Auto-generation**: the frontend doesn't actually wait for the user to click into each tab.
+`JobUnderstanding.tsx` watches for both a resume and a job description being present and fires
+`POST /jobs/{id}/analyze-all` once automatically (`job_service.generate_full_analysis`), which
+runs all three agents *concurrently* via `app/agents/orchestrator.py::run_full_analysis` (see
+below) and writes all three columns in one `UPDATE`. The three tabs' own generate/regenerate
+buttons still call the individual single-section endpoints directly — auto-generation is just
+the initial population, not a replacement for them.
+
 ## AI agents — what each one does and how it's prompted
 
 All agents use `app/agents/_llm.py::get_llm()`, currently `gemini-flash-lite-latest`. **Do not
@@ -150,6 +158,12 @@ casually swap this** — see "Gemini model/quota gotcha" below.
   `original_text` must be an **exact substring of the resume's raw text** — the agent function
   filters out any edit where `original_text not in resume_text` before returning, because the
   frontend does literal `text.indexOf()` to render yellow highlights and needs exact matches.
+- **orchestrator** — not a fourth analysis type, just fans out `job_explainer`/`typical_day`/
+  `resume_matcher` concurrently using LangChain's `RunnableParallel` (runs each branch in a
+  thread pool; since every branch is a blocking Gemini HTTP call, this cuts wall-clock time to
+  roughly the slowest single branch instead of their sum — measured ~5s for all three vs 5-7s
+  each run sequentially). Used only by the auto-generation path described above; the three
+  single-section endpoints call their agents directly and don't go through this.
   If you change the resume text format fed into this agent, re-verify this still holds.
 - **translator** — re-runs `JobExplanation` through the model with a "translate every field into
   {language}" prompt, structured-output-parsed back into the *same* `JobExplanation` shape. Only
