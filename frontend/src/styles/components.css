@@ -90,6 +90,33 @@
   margin-bottom: 24px;
 }
 
+/* Split layout: fixed-width left column, flexible right column */
+
+.split-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.split-layout-left {
+  width: 380px;
+  flex-shrink: 0;
+}
+
+.split-layout-right {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .split-layout {
+    flex-direction: column;
+  }
+  .split-layout-left {
+    width: 100%;
+  }
+}
+
 /* Card */
 
 .card {

@@ -79,99 +79,107 @@ export default function JobUnderstanding() {
         </div>
       </div>
 
-      <div className="card">
-        <h2>Resume</h2>
-        <form className="form-row" onSubmit={handleResumeUpload}>
-          <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleFileChange} />
-          <button type="submit" className="btn btn-primary" disabled={!resumeFile || uploading}>
-            {uploading ? "Uploading..." : "Upload resume"}
-          </button>
-        </form>
-        {resumeError && <p className="alert">{resumeError}</p>}
-        {resume && (
-          <div style={{ marginTop: 16 }}>
-            <p>
-              Parsed: <strong>{(resume.parsed_json?.full_name as string) ?? resume.label}</strong>
-            </p>
-            <div className="pill-list">
-              {((resume.parsed_json?.skills as string[]) ?? []).map((skill) => (
-                <span key={skill} className="badge badge-primary">
-                  {skill}
-                </span>
-              ))}
+      <div className="split-layout">
+        <div className="split-layout-left">
+          <div className="card">
+            <h2>Resume</h2>
+            <form className="form-row" onSubmit={handleResumeUpload}>
+              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleFileChange} />
+              <button type="submit" className="btn btn-primary" disabled={!resumeFile || uploading}>
+                {uploading ? "Uploading..." : "Upload resume"}
+              </button>
+            </form>
+            {resumeError && <p className="alert">{resumeError}</p>}
+            {resume && (
+              <div style={{ marginTop: 16 }}>
+                <p>
+                  Parsed: <strong>{(resume.parsed_json?.full_name as string) ?? resume.label}</strong>
+                </p>
+                <div className="pill-list">
+                  {((resume.parsed_json?.skills as string[]) ?? []).map((skill) => (
+                    <span key={skill} className="badge badge-primary">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <h2>Job Description</h2>
+            <form onSubmit={handleJdSave}>
+              <textarea
+                className="input"
+                rows={8}
+                placeholder="Paste the job description here"
+                value={jdText}
+                onChange={(e) => setJdText(e.target.value)}
+              />
+              <div style={{ marginTop: 12 }}>
+                <button type="submit" className="btn btn-primary" disabled={!jdText.trim() || savingJd}>
+                  {savingJd ? "Saving..." : "Save job description"}
+                </button>
+              </div>
+            </form>
+            {jdError && <p className="alert">{jdError}</p>}
+            {jobDescription && (
+              <p className="muted" style={{ marginTop: 10 }}>
+                Saved job description ({jobDescription.raw_text.length} chars).
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="split-layout-right">
+          {jobDescription ? (
+            <div className="card">
+              <div className="tabs">
+                <button
+                  className={"tab-button" + (tab === "explanation" ? " active" : "")}
+                  onClick={() => setTab("explanation")}
+                >
+                  Job Explanation
+                </button>
+                <button
+                  className={"tab-button" + (tab === "typical_day" ? " active" : "")}
+                  onClick={() => setTab("typical_day")}
+                >
+                  Typical Day
+                </button>
+                <button
+                  className={"tab-button" + (tab === "resume_match" ? " active" : "")}
+                  onClick={() => setTab("resume_match")}
+                >
+                  Resume Match
+                </button>
+              </div>
+
+              {tab === "explanation" && (
+                <JobExplanationTab
+                  jobId={jobDescription.id}
+                  explanation={explanation}
+                  translations={translations}
+                  onUpdated={(newExplanation, newTranslations) => {
+                    setExplanation(newExplanation);
+                    setTranslations(newTranslations);
+                  }}
+                />
+              )}
+              {tab === "typical_day" && (
+                <TypicalDayTab jobId={jobDescription.id} typicalDay={typicalDay} onUpdated={setTypicalDay} />
+              )}
+              {tab === "resume_match" && (
+                <ResumeMatchTab jobId={jobDescription.id} match={match} onUpdated={setMatch} />
+              )}
             </div>
-          </div>
-        )}
-      </div>
-
-      <div className="card">
-        <h2>Job Description</h2>
-        <form onSubmit={handleJdSave}>
-          <textarea
-            className="input"
-            rows={8}
-            placeholder="Paste the job description here"
-            value={jdText}
-            onChange={(e) => setJdText(e.target.value)}
-          />
-          <div style={{ marginTop: 12 }}>
-            <button type="submit" className="btn btn-primary" disabled={!jdText.trim() || savingJd}>
-              {savingJd ? "Saving..." : "Save job description"}
-            </button>
-          </div>
-        </form>
-        {jdError && <p className="alert">{jdError}</p>}
-        {jobDescription && (
-          <p className="muted" style={{ marginTop: 10 }}>
-            Saved job description ({jobDescription.raw_text.length} chars).
-          </p>
-        )}
-      </div>
-
-      {jobDescription ? (
-        <div className="card">
-          <div className="tabs">
-            <button
-              className={"tab-button" + (tab === "explanation" ? " active" : "")}
-              onClick={() => setTab("explanation")}
-            >
-              Job Explanation
-            </button>
-            <button
-              className={"tab-button" + (tab === "typical_day" ? " active" : "")}
-              onClick={() => setTab("typical_day")}
-            >
-              Typical Day
-            </button>
-            <button
-              className={"tab-button" + (tab === "resume_match" ? " active" : "")}
-              onClick={() => setTab("resume_match")}
-            >
-              Resume Match
-            </button>
-          </div>
-
-          {tab === "explanation" && (
-            <JobExplanationTab
-              jobId={jobDescription.id}
-              explanation={explanation}
-              translations={translations}
-              onUpdated={(newExplanation, newTranslations) => {
-                setExplanation(newExplanation);
-                setTranslations(newTranslations);
-              }}
-            />
-          )}
-          {tab === "typical_day" && (
-            <TypicalDayTab jobId={jobDescription.id} typicalDay={typicalDay} onUpdated={setTypicalDay} />
-          )}
-          {tab === "resume_match" && (
-            <ResumeMatchTab jobId={jobDescription.id} match={match} onUpdated={setMatch} />
+          ) : (
+            <div className="card">
+              <p className="muted">Save a job description on the left to unlock these tabs.</p>
+            </div>
           )}
         </div>
-      ) : (
-        <p className="muted">Save a job description above to unlock these tabs.</p>
-      )}
+      </div>
     </div>
   );
 }
