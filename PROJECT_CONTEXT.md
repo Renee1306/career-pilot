@@ -245,6 +245,16 @@ If you add a new agent or endpoint, follow the same pattern: real API call first
 model names, prompt/schema mismatches, quota issues) before wiring it into routes; real browser
 click-through before calling a feature done.
 
+## Dev-only auto-login (remove before shipping)
+
+`frontend/.env` has `VITE_DEV_AUTO_LOGIN=true` plus `VITE_DEV_EMAIL`/`VITE_DEV_PASSWORD` pointing
+at a persistent Supabase user (`dev@careerpilot.local`, created via the admin API, not a
+throwaway test user). `AuthContext.tsx` checks this flag when `getSession()` comes back empty
+and silently signs in as that account instead of showing the Login page — real Supabase
+Auth/RLS still runs underneath, only the manual login step is skipped. Set the flag to `false`
+(or delete those three lines from `.env`) before shipping or demoing real auth; `.env.example`
+already defaults it to `false`.
+
 ## How to run locally
 
 ```bash

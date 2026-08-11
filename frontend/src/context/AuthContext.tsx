@@ -15,7 +15,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session && import.meta.env.VITE_DEV_AUTO_LOGIN === "true") {
+        // Dev-only: skip the login screen by signing in as a fixed dev account.
+        // Remove VITE_DEV_AUTO_LOGIN from .env before shipping/demoing real auth.
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({
+          email: import.meta.env.VITE_DEV_EMAIL,
+          password: import.meta.env.VITE_DEV_PASSWORD,
+        });
+        if (error) console.warn("Dev auto-login failed:", error.message);
+        setSession(signInData?.session ?? null);
+        setLoading(false);
+        return;
+      }
       setSession(data.session);
       setLoading(false);
     });
