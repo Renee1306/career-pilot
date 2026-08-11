@@ -1,9 +1,8 @@
 import base64
 
 from langchain_core.messages import HumanMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 
-from app.core.config import settings
+from app.agents._llm import get_llm
 from app.models.resume import ResumeParsed
 
 EXTRACTION_PROMPT = (
@@ -15,8 +14,7 @@ EXTRACTION_PROMPT = (
 
 
 def parse_resume(file_bytes: bytes, mime_type: str) -> ResumeParsed:
-    llm = ChatGoogleGenerativeAI(model="gemini-flash-latest", api_key=settings.gemini_api_key)
-    structured_llm = llm.with_structured_output(ResumeParsed)
+    structured_llm = get_llm().with_structured_output(ResumeParsed)
 
     encoded = base64.b64encode(file_bytes).decode("utf-8")
     message = HumanMessage(

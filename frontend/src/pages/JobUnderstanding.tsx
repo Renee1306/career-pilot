@@ -1,5 +1,16 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { createJobDescription, uploadResume, type JobDescriptionOut, type ResumeOut } from "../lib/api";
+import JobExplanationTab from "../components/JobExplanationTab";
+import ResumeMatchTab from "../components/ResumeMatchTab";
+import TypicalDayTab from "../components/TypicalDayTab";
+import {
+  createJobDescription,
+  uploadResume,
+  type JobDescriptionOut,
+  type JobExplanation,
+  type ResumeMatch,
+  type ResumeOut,
+  type TypicalDay,
+} from "../lib/api";
 
 type Tab = "explanation" | "typical_day" | "resume_match";
 
@@ -15,6 +26,11 @@ export default function JobUnderstanding() {
   const [jobDescription, setJobDescription] = useState<JobDescriptionOut | null>(null);
   const [jdError, setJdError] = useState<string | null>(null);
   const [savingJd, setSavingJd] = useState(false);
+
+  const [explanation, setExplanation] = useState<JobExplanation | null>(null);
+  const [translations, setTranslations] = useState<Record<string, JobExplanation>>({});
+  const [typicalDay, setTypicalDay] = useState<TypicalDay | null>(null);
+  const [match, setMatch] = useState<ResumeMatch | null>(null);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     setResumeFile(event.target.files?.[0] ?? null);
@@ -43,6 +59,10 @@ export default function JobUnderstanding() {
     try {
       const result = await createJobDescription({ raw_text: jdText });
       setJobDescription(result);
+      setExplanation(null);
+      setTranslations({});
+      setTypicalDay(null);
+      setMatch(null);
     } catch (err) {
       setJdError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -94,21 +114,41 @@ export default function JobUnderstanding() {
         {jobDescription && <p>Saved job description ({jobDescription.raw_text.length} chars).</p>}
       </section>
 
-      <nav>
-        <button onClick={() => setTab("explanation")} disabled={tab === "explanation"}>
-          Job Explanation
-        </button>
-        <button onClick={() => setTab("typical_day")} disabled={tab === "typical_day"}>
-          Typical Day
-        </button>
-        <button onClick={() => setTab("resume_match")} disabled={tab === "resume_match"}>
-          Resume Match
-        </button>
-      </nav>
+      {jobDescription ? (
+        <>
+          <nav>
+            <button onClick={() => setTab("explanation")} disabled={tab === "explanation"}>
+              Job Explanation
+            </button>
+            <button onClick={() => setTab("typical_day")} disabled={tab === "typical_day"}>
+              Typical Day
+            </button>
+            <button onClick={() => setTab("resume_match")} disabled={tab === "resume_match"}>
+              Resume Match
+            </button>
+          </nav>
 
-      {tab === "explanation" && <p>Job explanation will appear here.</p>}
-      {tab === "typical_day" && <p>A typical day for this role will appear here.</p>}
-      {tab === "resume_match" && <p>Resume match suggestions will appear here.</p>}
+          {tab === "explanation" && (
+            <JobExplanationTab
+              jobId={jobDescription.id}
+              explanation={explanation}
+              translations={translations}
+              onUpdated={(newExplanation, newTranslations) => {
+                setExplanation(newExplanation);
+                setTranslations(newTranslations);
+              }}
+            />
+          )}
+          {tab === "typical_day" && (
+            <TypicalDayTab jobId={jobDescription.id} typicalDay={typicalDay} onUpdated={setTypicalDay} />
+          )}
+          {tab === "resume_match" && (
+            <ResumeMatchTab jobId={jobDescription.id} match={match} onUpdated={setMatch} />
+          )}
+        </>
+      ) : (
+        <p>Save a job description above to unlock these tabs.</p>
+      )}
     </div>
   );
 }

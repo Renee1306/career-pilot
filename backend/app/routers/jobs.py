@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.middleware.auth import AuthedUser, get_current_user
-from app.models.job import JobAnalysisOut, JobDescriptionCreate, JobDescriptionOut
+from app.models.job import (
+    JobAnalysisOut,
+    JobDescriptionCreate,
+    JobDescriptionOut,
+    ResumeMatchRequest,
+    TranslateRequest,
+)
 from app.services import job_service
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -25,6 +31,37 @@ def get_job_description(job_id: str, user: AuthedUser = Depends(get_current_user
     return job
 
 
-@router.get("/{job_id}/analyses", response_model=list[JobAnalysisOut])
-def list_analyses(job_id: str, user: AuthedUser = Depends(get_current_user)):
-    return job_service.list_analyses_for_job(user.client, user.id, job_id)
+@router.get("/{job_id}/analysis", response_model=JobAnalysisOut | None)
+def get_analysis(job_id: str, user: AuthedUser = Depends(get_current_user)):
+    return job_service.get_analysis(user.client, user.id, job_id)
+
+
+def _run(fn, *args):
+    try:
+        return fn(*args)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+@router.post("/{job_id}/explanation", response_model=JobAnalysisOut)
+def generate_explanation(job_id: str, user: AuthedUser = Depends(get_current_user)):
+    return _run(job_service.generate_explanation, user.client, user.id, job_id)
+
+
+@router.post("/{job_id}/typical-day", response_model=JobAnalysisOut)
+def generate_typical_day(job_id: str, user: AuthedUser = Depends(get_current_user)):
+    return _run(job_service.generate_typical_day_analysis, user.client, user.id, job_id)
+
+
+@router.post("/{job_id}/resume-match", response_model=JobAnalysisOut)
+def generate_resume_match(
+    job_id: str, payload: ResumeMatchRequest, user: AuthedUser = Depends(get_current_user)
+):
+    return _run(job_service.generate_resume_match, user.client, user.id, job_id, payload.resume_id)
+
+
+@router.post("/{job_id}/explanation/translate", response_model=JobAnalysisOut)
+def translate_explanation(
+    job_id: str, payload: TranslateRequest, user: AuthedUser = Depends(get_current_user)
+):
+    return _run(job_service.translate_explanation, user.client, user.id, job_id, payload.language)

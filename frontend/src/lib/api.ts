@@ -68,3 +68,67 @@ export function createJobDescription(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export interface JobExplanation {
+  overview: string;
+  key_responsibilities: string[];
+  key_skills: string[];
+  examples: string[];
+  who_thrives: string;
+}
+
+export interface DayBlock {
+  time_block: string;
+  activities: string;
+}
+
+export interface TypicalDay {
+  summary: string;
+  schedule: DayBlock[];
+}
+
+export interface ResumeMatch {
+  match_score: number;
+  matched_skills: string[];
+  missing_skills: string[];
+  suggestions: string[];
+}
+
+export interface JobAnalysisOut {
+  id: string;
+  job_description_id: string;
+  resume_id: string | null;
+  explanation: JobExplanation | null;
+  typical_day: TypicalDay | null;
+  match_suggestions: ResumeMatch | null;
+  translations: Record<string, JobExplanation>;
+  created_at: string;
+}
+
+function postJson(path: string, body?: unknown): Promise<JobAnalysisOut> {
+  return authedFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
+export function getAnalysis(jobId: string): Promise<JobAnalysisOut | null> {
+  return authedFetch(`/jobs/${jobId}/analysis`);
+}
+
+export function generateExplanation(jobId: string): Promise<JobAnalysisOut> {
+  return postJson(`/jobs/${jobId}/explanation`);
+}
+
+export function generateTypicalDay(jobId: string): Promise<JobAnalysisOut> {
+  return postJson(`/jobs/${jobId}/typical-day`);
+}
+
+export function generateResumeMatch(jobId: string, resumeId: string): Promise<JobAnalysisOut> {
+  return postJson(`/jobs/${jobId}/resume-match`, { resume_id: resumeId });
+}
+
+export function translateExplanation(jobId: string, language: string): Promise<JobAnalysisOut> {
+  return postJson(`/jobs/${jobId}/explanation/translate`, { language });
+}
