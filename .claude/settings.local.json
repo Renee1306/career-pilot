@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__6c6f3b3f-44f3-4c33-97c8-c82cef605647__list_projects",
+      "Bash(npm --version)",
+      "mcp__6c6f3b3f-44f3-4c33-97c8-c82cef605647__list_organizations"
+    ]
+  }
+}
