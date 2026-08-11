@@ -45,6 +45,10 @@ export function listResumes(): Promise<ResumeOut[]> {
   return authedFetch("/resumes");
 }
 
+export function getResume(resumeId: string): Promise<ResumeOut> {
+  return authedFetch(`/resumes/${resumeId}`);
+}
+
 export function uploadResume(file: File, label?: string): Promise<ResumeOut> {
   const formData = new FormData();
   formData.append("file", file);
@@ -54,6 +58,10 @@ export function uploadResume(file: File, label?: string): Promise<ResumeOut> {
 
 export function listJobDescriptions(): Promise<JobDescriptionOut[]> {
   return authedFetch("/jobs");
+}
+
+export function getJobDescription(jobId: string): Promise<JobDescriptionOut> {
+  return authedFetch(`/jobs/${jobId}`);
 }
 
 export function createJobDescription(payload: {
@@ -217,4 +225,62 @@ export async function exportResumePdf(text: string, filename?: string): Promise<
     throw new Error(`Export failed (${response.status}): ${body}`);
   }
   return response.blob();
+}
+
+export type ApplicationStatus = "applied" | "pending_interview" | "offer" | "rejected";
+
+export interface TimelineEntry {
+  date: string;
+  note: string;
+}
+
+export interface ApplicationOut {
+  id: string;
+  job_description_id: string | null;
+  resume_id: string | null;
+  status: ApplicationStatus;
+  applied_date: string | null;
+  timeline: TimelineEntry[];
+  created_at: string;
+  updated_at: string;
+}
+
+export function listApplications(): Promise<ApplicationOut[]> {
+  return authedFetch("/applications");
+}
+
+export function getApplication(applicationId: string): Promise<ApplicationOut> {
+  return authedFetch(`/applications/${applicationId}`);
+}
+
+export function createApplication(payload: {
+  job_description_id?: string;
+  resume_id?: string;
+  status?: ApplicationStatus;
+  applied_date?: string;
+}): Promise<ApplicationOut> {
+  return authedFetch("/applications", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateApplication(
+  applicationId: string,
+  payload: { status?: ApplicationStatus; applied_date?: string }
+): Promise<ApplicationOut> {
+  return authedFetch(`/applications/${applicationId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function addTimelineEntry(applicationId: string, note: string): Promise<ApplicationOut> {
+  return authedFetch(`/applications/${applicationId}/timeline`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ note }),
+  });
 }

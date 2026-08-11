@@ -19,6 +19,10 @@ class ApplicationUpdate(BaseModel):
     timeline: list[dict] | None = None
 
 
+class TimelineEntryCreate(BaseModel):
+    note: str
+
+
 class ApplicationOut(BaseModel):
     id: str
     user_id: str

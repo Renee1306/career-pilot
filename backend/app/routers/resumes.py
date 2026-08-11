@@ -43,6 +43,14 @@ def upload_resume(
     )
 
 
+@router.get("/{resume_id}", response_model=ResumeOut)
+def get_resume(resume_id: str, user: AuthedUser = Depends(get_current_user)):
+    resume = resume_service.get_resume(user.client, user.id, resume_id)
+    if resume is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
+    return resume
+
+
 @router.post("/export-pdf")
 def export_resume_pdf(payload: ResumeExportRequest, user: AuthedUser = Depends(get_current_user)):
     pdf_bytes = pdf_service.render_resume_pdf(payload.text)
