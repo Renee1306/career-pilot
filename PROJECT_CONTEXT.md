@@ -170,60 +170,28 @@ have moved multiple times already during this project.
 
 ## Frontend design system
 
-**Second and current design pass.** The first pass mirrored a reference dashboard screenshot
-(`reference.png` at repo root, a course-platform UI called "Focotech": cream background, coral
-accent, Plus Jakarta Sans). That was later identified as landing on one of the generic
-AI-design-default looks (warm cream + terracotta accent, called out explicitly in
-`.claude/skills/frontend-design/SKILL.md`) rather than a choice grounded in what CareerPilot
-actually is. Redesigned around the product's own name: a pilot's instrument panel, not a course
-platform.
-
-**Concept**: dark ink-navy "instrument panel" for the sidebar/nav, a cool paper-toned "flight
-desk" for content, warm brass accent (not orange), display type in Instrument Serif paired with
-IBM Plex Sans/Mono for a precise, technical feel. Two signature elements carry the theme instead
-of decorating everywhere: the Applications board gets a **flight-route header**
-(`.flight-route`/`.flight-route-node`/`.flight-route-line` in `Applications.tsx`) — Applied →
-Pending Interview → Offer as connected waypoints, with Rejected set apart via a muted "diverted"
-line/node, since rejection can happen at any stage rather than being the next stop on the route.
-The resume-match score is an **instrument dial** (`ScoreDial` in `ResumeMatchTab.tsx`, a small
-inline SVG arc) instead of a plain badge. Nothing else gets bespoke illustration — restraint
-everywhere else per the design skill's "spend your boldness in one place."
-
-Tokens (`src/index.css`): `--color-ink` (#101b2d, dark panel bg), `--color-paper` (#eef0ea,
-content bg — deliberately cooler/greyer than the cream-family default), `--color-brass`
-(#b8863a, primary accent), `--color-sky` (#3e6e8e, secondary/links), plus success/danger in
-muted (not neon) tones. Radii tightened from the first pass's very-rounded pill-everything look
-to `--radius-lg: 14px` / `--radius-sm: 7px` — more instrument-panel precision, less bubbly SaaS
-card. Fonts: Instrument Serif (display/headings, regular weight only — it's a single-weight
-family, used at size for character rather than boldness), IBM Plex Sans (body), IBM Plex Mono
-(labels, badges, data — mono reinforces the "technical readout" feel for things like match
-scores and status pills). All three loaded via Google Fonts `<link>` in `index.html`, not
-self-hosted.
+Modeled on a reference dashboard screenshot (`reference.png` at repo root — a course-platform
+UI called "Focotech"): warm cream background (`--color-bg: #f7f3ec`), coral/orange primary
+accent (`--color-primary: #ff6b3d`), white rounded cards (`--radius-lg: 20px`), pill-shaped nav
+items and buttons, soft shadows. Font is Google Fonts "Plus Jakarta Sans" (loaded via `<link>`
+in `index.html`, not self-hosted).
 
 Everything lives in two files:
-- `src/index.css` — CSS custom properties (colors, radii, shadows, fonts) + base element resets
+- `src/index.css` — CSS custom properties (colors, radii, shadows) + base element resets
 - `src/styles/components.css` — the actual reusable classes: `.card`, `.btn`/`.btn-primary`/
   `.btn-secondary`/`.btn-ghost`, `.input`, `.field`, `.tabs`/`.tab-button`, `.badge` +
-  color variants, `.board`/`.board-column`/`.board-card` (Kanban), `.flight-route*` and `.dial*`
-  (the two signature elements, see above), `.progress-track`/`.progress-fill` (time-allocation
-  bars), `.subcard` + `.tier-hard`/`.tier-learnable`/`.tier-bonus` (colored left-border boxes for
-  requirement tiers), `.highlight` (the brass-underlined `<mark>` for resume-match edits),
-  `.login-*` (the Login page's full hero treatment — see below).
+  color variants, `.board`/`.board-column`/`.board-card` (Kanban), `.progress-track`/
+  `.progress-fill` (time-allocation bars), `.subcard` + `.tier-hard`/`.tier-learnable`/
+  `.tier-bonus` (colored left-border boxes for requirement tiers), `.highlight` (the yellow
+  `<mark>` for resume-match edits).
 
 There is no component library (no MUI/Chakra/etc.) — just these class names applied directly in
 JSX, occasionally mixed with inline `style={}` for one-off layout tweaks. Keep using this
-pattern rather than introducing a UI library, unless the user asks for one. **If you touch this
-system again, re-read `.claude/skills/frontend-design/SKILL.md` first** — it's what drove this
-pass and explains why (e.g.) the cream/terracotta look from the first pass was deliberately
-abandoned rather than iterated on.
+pattern rather than introducing a UI library, unless the user asks for one.
 
 Layout: `App.tsx`'s `AppLayout` renders `<Sidebar/>` + `<main className="main-content">` only
 when a session exists; otherwise it renders children directly (so `Login` isn't wrapped in the
-authenticated chrome). `Sidebar.tsx` has inline SVG icons (no icon package dependency). `Login`
-is the one screen that gets a full "front door" hero moment (dark ink background, horizon-glow
-gradient, italic brass wordmark) since it's the only page in this logged-in tool that functions
-like a landing page — everything else stays disciplined/utilitarian per the skill's restraint
-principle.
+authenticated chrome). `Sidebar.tsx` has inline SVG icons (no icon package dependency).
 
 ## Resume-match "apply and export" flow (frontend-only state, not persisted)
 

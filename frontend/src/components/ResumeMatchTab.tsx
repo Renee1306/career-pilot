@@ -41,41 +41,6 @@ function buildSegments(text: string, edits: ResumeEdit[], appliedKeys: Set<numbe
   return segments;
 }
 
-function ScoreDial({ score }: { score: number }) {
-  const radius = 30;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - score / 100);
-
-  return (
-    <div className="dial">
-      <svg width="72" height="72" viewBox="0 0 72 72">
-        <circle cx="36" cy="36" r={radius} fill="none" stroke="var(--color-border)" strokeWidth="6" />
-        <circle
-          cx="36"
-          cy="36"
-          r={radius}
-          fill="none"
-          stroke="var(--color-brass)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform="rotate(-90 36 36)"
-        />
-        <text x="36" y="41" textAnchor="middle" className="dial-value">
-          {score}
-        </text>
-      </svg>
-      <div>
-        <div className="dial-label">Match score</div>
-        <div className="muted" style={{ fontSize: 13 }}>
-          out of 100
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -189,8 +154,10 @@ export default function ResumeMatchTab({
 
       {match && (
         <div style={{ marginTop: 20 }}>
-          <div className="form-row" style={{ marginBottom: 16, alignItems: "center" }}>
-            <ScoreDial score={match.match_score} />
+          <div className="form-row" style={{ marginBottom: 16 }}>
+            <span className="badge badge-primary" style={{ fontSize: 14, padding: "6px 16px" }}>
+              Match score: {match.match_score}/100
+            </span>
             {match.edits.length > 0 && (
               <span className="badge badge-muted">
                 {appliedCount}/{match.edits.length} suggestions applied
@@ -233,7 +200,7 @@ export default function ResumeMatchTab({
           </div>
 
           {active && (
-            <div className="subcard" style={{ border: "1px solid var(--color-brass)", marginTop: 12 }}>
+            <div className="subcard" style={{ border: "1px solid var(--color-primary)", marginTop: 12 }}>
               <h4>Original</h4>
               <p>{active.original_text}</p>
               <h4>Suggestion</h4>

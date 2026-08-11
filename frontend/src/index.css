@@ -1,45 +1,32 @@
 :root {
-  /* Instrument panel (dark) */
-  --color-ink: #101b2d;
-  --color-ink-soft: #1e2e47;
-  --color-ink-line: #2c3f5c;
-  --color-text-on-ink: #ede7d9;
-  --color-text-on-ink-muted: #8d96a6;
-
-  /* Flight desk (light) */
-  --color-paper: #eef0ea;
+  --color-bg: #f7f3ec;
   --color-surface: #ffffff;
-  --color-surface-alt: #f6f5ee;
-  --color-border: #dfddce;
-  --color-text: #17212f;
-  --color-text-muted: #626b78;
+  --color-primary: #ff6b3d;
+  --color-primary-hover: #f0562a;
+  --color-primary-soft: #ffe6da;
+  --color-text: #211f26;
+  --color-text-muted: #8b8a92;
+  --color-border: #ede8de;
+  --color-success: #2f9e5c;
+  --color-success-soft: #e3f6ea;
+  --color-danger: #e0503a;
+  --color-danger-soft: #fbe6e1;
+  --color-warning: #d99a1f;
+  --color-warning-soft: #fbeecf;
 
-  /* Accents */
-  --color-brass: #b8863a;
-  --color-brass-deep: #8f6427;
-  --color-brass-soft: #f3e6cc;
-  --color-sky: #3e6e8e;
-  --color-sky-soft: #dce7ec;
-  --color-success: #3f7d5c;
-  --color-success-soft: #e1eee5;
-  --color-danger: #b5503d;
-  --color-danger-soft: #f6e4df;
-
-  --radius-lg: 14px;
-  --radius-md: 10px;
-  --radius-sm: 7px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
   --radius-pill: 999px;
 
-  --shadow-card: 0 4px 20px rgba(16, 27, 45, 0.08);
-  --shadow-card-hover: 0 8px 28px rgba(16, 27, 45, 0.12);
+  --shadow-card: 0 4px 24px rgba(33, 31, 38, 0.06);
+  --shadow-card-hover: 0 8px 28px rgba(33, 31, 38, 0.1);
 
-  --font-display: "Instrument Serif", Georgia, serif;
-  --font-sans: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", monospace;
+  --font-sans: "Plus Jakarta Sans", "Inter", system-ui, "Segoe UI", sans-serif;
 
   font-family: var(--font-sans);
   color: var(--color-text);
-  background: var(--color-paper);
+  background: var(--color-bg);
   color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -60,35 +47,32 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-display);
-  font-weight: 400;
+  font-family: var(--font-sans);
+  font-weight: 700;
   color: var(--color-text);
-  margin: 0 0 0.4em;
-  letter-spacing: 0.01em;
+  margin: 0 0 0.5em;
 }
 
 h1 {
-  font-size: 34px;
-  line-height: 1.15;
+  font-size: 28px;
+  letter-spacing: -0.3px;
 }
 
 h2 {
-  font-size: 21px;
+  font-size: 18px;
 }
 
 h3 {
-  font-size: 16px;
-  font-family: var(--font-sans);
-  font-weight: 600;
+  font-size: 15px;
 }
 
 p {
   margin: 0 0 0.5em;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 a {
-  color: var(--color-sky);
+  color: var(--color-primary);
   text-decoration: none;
   font-weight: 600;
 }
@@ -108,19 +92,4 @@ select,
 textarea {
   font-family: var(--font-sans);
   font-size: 14px;
-}
-
-:focus-visible {
-  outline: 2px solid var(--color-brass);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
 }
