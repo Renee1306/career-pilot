@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import GmailSync from "../components/GmailSync";
 import {
   createApplication,
   listApplications,
@@ -80,6 +81,8 @@ export default function Applications() {
       <div className="page-header">
         <h1>Applications</h1>
       </div>
+
+      <GmailSync onApplicationsChanged={loadAll} />
 
       {jobs.length === 0 ? (
         <p className="muted">

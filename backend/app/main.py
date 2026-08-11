@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import applications, interviews, jobs, resumes
+from app.routers import applications, gmail, interviews, jobs, resumes
 
 app = FastAPI(title="CareerPilot API")
 
@@ -18,6 +18,7 @@ app.include_router(resumes.router)
 app.include_router(jobs.router)
 app.include_router(applications.router)
 app.include_router(interviews.router)
+app.include_router(gmail.router)
 
 
 @app.get("/health")

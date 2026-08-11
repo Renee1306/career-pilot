@@ -216,14 +216,55 @@ table — nothing today saves intermediate tailoring state.
 4. Application tracker: Kanban board, application detail, timeline notes
 5. Job Explanation + Typical Day rewritten to the exact 5-section specs the user provided;
    full frontend redesign to match `reference.png`; interview prep (Q&A generation + rounds UI)
+6. Gmail sync (OAuth connect/callback, on-demand inbox scan + AI classification, review-before-
+   apply UI) — code complete and verified up to the Google-consent boundary; awaiting the user's
+   first real click-through to confirm the full round trip (see "Gmail sync" section above)
+
+## Gmail sync
+
+Built in `app/services/gmail_service.py` + `app/routers/gmail.py` + `app/agents/email_classifier.py`,
+frontend in `components/GmailSync.tsx` (mounted on the Applications page). Flow:
+
+1. `GET /gmail/connect` (authenticated) returns a Google OAuth consent URL. The frontend does a
+   full-page redirect (`window.location.href = url`), not a fetch — Google's consent screen
+   can't be iframed/fetched.
+2. State-CSRF protection: since Google's redirect back hits the backend directly with no bearer
+   token available, the user's id is carried in the OAuth `state` param, HMAC-signed
+   (`gmail_service.sign_state`/`verify_state`, keyed off `SUPABASE_SERVICE_ROLE_KEY`) so it can't
+   be forged.
+3. `GET /gmail/callback` (hit directly by Google, **not** authenticated via the normal
+   `get_current_user` dependency) verifies the state, exchanges the code for tokens, fetches the
+   Google email address, and saves the refresh token via `get_service_client()` — the **one**
+   place in the codebase that intentionally uses the Supabase service-role key to bypass RLS,
+   because there's no user JWT available in an OAuth-redirect context. Redirects back to
+   `/applications?gmail_connected=true` (or `?gmail_error=...`).
+4. `POST /gmail/sync` (authenticated, normal RLS-scoped client) refreshes the access token,
+   searches Gmail for recent likely-application-related mail (`GMAIL_QUERY` — subject/body
+   containing "application"/"interview"/"position"/"offer"/"candidacy", last 30 days), classifies
+   each match with `email_classifier.classify_email` (Gemini), and tries to match detected
+   companies against the user's existing applications (via `job_descriptions.company`
+   substring match — intentionally simple, not fuzzy). Returns a `GmailSyncResult` — **nothing is
+   written to the applications table automatically.**
+5. The frontend shows each detected update as a card the user must explicitly accept ("Track
+   this application" / "Update status") or dismiss — same "AI suggests, human confirms" pattern
+   as the resume-match edits. Accepting a `create_application` suggestion currently creates an
+   application with **no linked job_description_id** (a short interview-invite email doesn't
+   contain a full JD) — it'll show as "Unknown job" on the board until the user links one
+   manually. This is a known MVP gap, not an oversight.
+
+Setup requires a Google Cloud OAuth client (Gmail API enabled, OAuth consent screen in Testing
+mode with the user added as a test user, Web application credential type, redirect URI
+`http://localhost:8000/gmail/callback`) — `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` in
+`backend/.env`. **The actual "click through Google's consent screen and grant access" step
+requires the user's real Google login and cannot be automated/tested by an agent** — everything
+up to that boundary (`/gmail/connect` producing a well-formed auth URL, `/gmail/status`,
+`/gmail/callback` failing gracefully on bad input) was verified with real credentials; the full
+round-trip (callback actually saving a token, `/gmail/sync` against a real inbox) needs the user
+to click "Connect Gmail" themselves at least once.
 
 ## Not built yet (known backlog)
 
-- **Gmail sync** — deferred by design (see earlier planning discussion); `gmail_sync_state`
-  table exists but nothing uses it. Would need Google OAuth (separate from Supabase Auth),
-  Gmail API polling/History API, and a classifier agent to map emails → application status
-  changes.
-- Cover letter generator, ATS compatibility check, resume version history, ~~ funnel analytics,
+- Cover letter generator, ATS compatibility check, resume version history, funnel analytics,
   mock interview practice mode — all flagged as backlog ideas during initial planning, not
   started.
 - No automated test suite beyond the health check — see below.

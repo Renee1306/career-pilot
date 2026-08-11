@@ -339,3 +339,40 @@ export function updateInterviewRound(
 export function generateInterviewQnA(roundId: string): Promise<InterviewRoundOut> {
   return authedFetch(`/interview-rounds/${roundId}/generate-qna`, { method: "POST" });
 }
+
+export interface GmailSyncStatus {
+  connected: boolean;
+  google_email: string | null;
+  last_synced_at: string | null;
+}
+
+export interface DetectedUpdate {
+  gmail_message_id: string;
+  subject: string;
+  snippet: string;
+  received_at: string | null;
+  company: string | null;
+  role: string | null;
+  detected_status: ApplicationStatus | null;
+  reasoning: string;
+  suggested_action: "create_application" | "update_status" | "ignore";
+  matching_application_id: string | null;
+}
+
+export interface GmailSyncResult {
+  scanned: number;
+  detected: DetectedUpdate[];
+}
+
+export function getGmailStatus(): Promise<GmailSyncStatus> {
+  return authedFetch("/gmail/status");
+}
+
+export async function getGmailConnectUrl(): Promise<string> {
+  const result = await authedFetch("/gmail/connect");
+  return result.auth_url;
+}
+
+export function syncGmail(): Promise<GmailSyncResult> {
+  return authedFetch("/gmail/sync", { method: "POST" });
+}
