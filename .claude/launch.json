@@ -8,6 +8,10 @@
       "port": 5173
     },
     {
+      "name": "frontend-attach",
+      "url": "http://localhost:5173"
+    },
+    {
       "name": "backend",
       "runtimeExecutable": "backend/.venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--reload", "--port", "8000", "--app-dir", "backend"],

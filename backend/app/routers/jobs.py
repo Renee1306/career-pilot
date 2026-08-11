@@ -60,6 +60,15 @@ def generate_resume_match(
     return _run(job_service.generate_resume_match, user.client, user.id, job_id, payload.resume_id)
 
 
+@router.post("/{job_id}/analyze-all", response_model=JobAnalysisOut)
+def generate_full_analysis(
+    job_id: str, payload: ResumeMatchRequest, user: AuthedUser = Depends(get_current_user)
+):
+    """Runs explanation, typical-day, and resume-match concurrently (see
+    app/agents/orchestrator.py) instead of the three separate sequential calls."""
+    return _run(job_service.generate_full_analysis, user.client, user.id, job_id, payload.resume_id)
+
+
 @router.post("/{job_id}/explanation/translate", response_model=JobAnalysisOut)
 def translate_explanation(
     job_id: str, payload: TranslateRequest, user: AuthedUser = Depends(get_current_user)

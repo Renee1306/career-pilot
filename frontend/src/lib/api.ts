@@ -201,6 +201,10 @@ export function generateResumeMatch(jobId: string, resumeId: string): Promise<Jo
   return postJson(`/jobs/${jobId}/resume-match`, { resume_id: resumeId });
 }
 
+export function generateFullAnalysis(jobId: string, resumeId: string): Promise<JobAnalysisOut> {
+  return postJson(`/jobs/${jobId}/analyze-all`, { resume_id: resumeId });
+}
+
 export function translateExplanation(jobId: string, language: string): Promise<JobAnalysisOut> {
   return postJson(`/jobs/${jobId}/explanation/translate`, { language });
 }

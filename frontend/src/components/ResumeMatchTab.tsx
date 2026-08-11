@@ -54,10 +54,12 @@ export default function ResumeMatchTab({
   jobId,
   match,
   onUpdated,
+  preferredResumeId,
 }: {
   jobId: string;
   match: ResumeMatch | null;
   onUpdated: (match: ResumeMatch) => void;
+  preferredResumeId?: string;
 }) {
   const [resumes, setResumes] = useState<ResumeOut[]>([]);
   const [resumeId, setResumeId] = useState("");
@@ -74,11 +76,14 @@ export default function ResumeMatchTab({
       .then((list) => {
         setResumes(list);
         if (list.length > 0) {
-          setResumeId(list[0].id);
-          setTailoredText(list[0].parsed_text ?? "");
+          const preferred = list.find((r) => r.id === preferredResumeId);
+          const initial = preferred ?? list[0];
+          setResumeId(initial.id);
+          setTailoredText(initial.parsed_text ?? "");
         }
       })
       .catch(() => setError("Failed to load resumes"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleResumeChange = (id: string) => {
