@@ -23,3 +23,11 @@ def update_round(round_id: str, payload: InterviewRoundUpdate, user: AuthedUser 
     if updated is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Interview round not found")
     return updated
+
+
+@router.post("/{round_id}/generate-qna", response_model=InterviewRoundOut)
+def generate_qna(round_id: str, user: AuthedUser = Depends(get_current_user)):
+    try:
+        return interview_service.generate_qna_for_round(user.client, user.id, round_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc

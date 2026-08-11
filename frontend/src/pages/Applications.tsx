@@ -77,49 +77,60 @@ export default function Applications() {
 
   return (
     <div>
-      <h1>Applications</h1>
+      <div className="page-header">
+        <h1>Applications</h1>
+      </div>
 
       {jobs.length === 0 ? (
-        <p>
+        <p className="muted">
           No saved job descriptions yet. <Link to="/">Analyze a job</Link> first, then track it here.
         </p>
       ) : (
-        <section>
+        <div className="card">
           <h2>Track a new application</h2>
-          <select value={jobId} onChange={(e) => setJobId(e.target.value)}>
-            {jobs.map((job) => (
-              <option key={job.id} value={job.id}>
-                {jobLabel(job)}
-              </option>
-            ))}
-          </select>
-          <select value={resumeId} onChange={(e) => setResumeId(e.target.value)}>
-            <option value="">No resume</option>
-            {resumes.map((resume) => (
-              <option key={resume.id} value={resume.id}>
-                {resume.label ?? resume.id}
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={handleCreate} disabled={creating || !jobId}>
-            {creating ? "Adding..." : "Add application"}
-          </button>
-        </section>
+          <div className="form-row">
+            <select className="input" style={{ width: 320 }} value={jobId} onChange={(e) => setJobId(e.target.value)}>
+              {jobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {jobLabel(job)}
+                </option>
+              ))}
+            </select>
+            <select className="input" style={{ width: 200 }} value={resumeId} onChange={(e) => setResumeId(e.target.value)}>
+              <option value="">No resume</option>
+              {resumes.map((resume) => (
+                <option key={resume.id} value={resume.id}>
+                  {resume.label ?? resume.id}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="btn btn-primary" onClick={handleCreate} disabled={creating || !jobId}>
+              {creating ? "Adding..." : "Add application"}
+            </button>
+          </div>
+        </div>
       )}
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="alert" style={{ marginTop: 12 }}>{error}</p>}
 
-      <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-        {COLUMNS.map((col) => (
-          <div key={col.status} style={{ flex: 1, minWidth: 200 }}>
-            <h3>{col.label}</h3>
-            {applications
-              .filter((app) => app.status === col.status)
-              .map((app) => (
-                <div key={app.id} style={{ border: "1px solid #ccc", padding: "0.5rem", marginBottom: "0.5rem" }}>
-                  <Link to={`/applications/${app.id}`}>{jobLabel(jobById(app.job_description_id))}</Link>
-                  {app.resume_id && <p>Resume: {resumeById(app.resume_id)?.label ?? app.resume_id}</p>}
+      <div className="board" style={{ marginTop: 20 }}>
+        {COLUMNS.map((col) => {
+          const colApps = applications.filter((app) => app.status === col.status);
+          return (
+            <div key={col.status} className="board-column">
+              <div className="board-column-title">
+                {col.label} ({colApps.length})
+              </div>
+              {colApps.map((app) => (
+                <div key={app.id} className="board-card">
+                  <Link className="board-card-title" to={`/applications/${app.id}`}>
+                    {jobLabel(jobById(app.job_description_id))}
+                  </Link>
+                  {app.resume_id && (
+                    <span className="board-card-meta">Resume: {resumeById(app.resume_id)?.label ?? app.resume_id}</span>
+                  )}
                   <select
+                    className="input"
                     value={app.status}
                     onChange={(e) => handleStatusChange(app.id, e.target.value as ApplicationStatus)}
                   >
@@ -131,8 +142,9 @@ export default function Applications() {
                   </select>
                 </div>
               ))}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

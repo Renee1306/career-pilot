@@ -1,5 +1,6 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Sidebar from "./components/Sidebar";
 import { useAuth } from "./context/AuthContext";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import Applications from "./pages/Applications";
@@ -7,54 +8,49 @@ import JobUnderstanding from "./pages/JobUnderstanding";
 import Login from "./pages/Login";
 import "./App.css";
 
-function App() {
-  const { session, signOut } = useAuth();
+function AppLayout({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
+  if (!session) return <>{children}</>;
 
   return (
-    <>
-      <header>
-        <strong>CareerPilot</strong>
-        <nav>
-          <NavLink to="/">Understand a Job</NavLink>
-          <NavLink to="/applications">Applications</NavLink>
-        </nav>
-        {session && (
-          <button type="button" onClick={signOut}>
-            Sign out
-          </button>
-        )}
-      </header>
+    <div className="app-shell">
+      <Sidebar />
+      <main className="main-content">{children}</main>
+    </div>
+  );
+}
 
-      <main>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <JobUnderstanding />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/applications"
-            element={
-              <ProtectedRoute>
-                <Applications />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/applications/:applicationId"
-            element={
-              <ProtectedRoute>
-                <ApplicationDetail />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </main>
-    </>
+function App() {
+  return (
+    <AppLayout>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <JobUnderstanding />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/applications"
+          element={
+            <ProtectedRoute>
+              <Applications />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/applications/:applicationId"
+          element={
+            <ProtectedRoute>
+              <ApplicationDetail />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </AppLayout>
   );
 }
 

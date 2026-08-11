@@ -38,25 +38,27 @@ export default function TypicalDayTab({
 
   return (
     <div>
-      <button type="button" onClick={handleGenerate} disabled={loading}>
+      <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
         {loading ? "Generating..." : typicalDay ? "Regenerate" : "Generate typical day"}
       </button>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="alert" style={{ marginTop: 12 }}>{error}</p>}
 
       {typicalDay && (
-        <div>
+        <div style={{ marginTop: 20 }}>
           <section>
-            <h2>1. What your day probably looks like</h2>
+            <div className="section-title">1. What your day probably looks like</div>
             <p>{typicalDay.overview}</p>
           </section>
 
+          <hr className="divider" />
+
           <section>
-            <h2>2. Day breakdown</h2>
+            <div className="section-title">2. Day breakdown</div>
             {(["morning", "afternoon", "end_of_day"] as const).map((key) => {
               const period = typicalDay.day_breakdown[key];
               return (
-                <div key={key}>
+                <div className="subcard" key={key}>
                   <h3>
                     {key === "end_of_day" ? "End of Day" : key[0].toUpperCase() + key.slice(1)} (
                     {period.approximate_time})
@@ -65,40 +67,44 @@ export default function TypicalDayTab({
                     <strong>{period.activity}</strong>
                   </p>
                   <p>{period.description}</p>
-                  <p>
-                    <em>{period.rationale}</em>
-                  </p>
+                  <p className="evidence">{period.rationale}</p>
                 </div>
               );
             })}
           </section>
 
-          <section>
-            <h2>3. What you will spend most time doing</h2>
-            <ul>
-              {(Object.keys(TIME_ALLOCATION_LABELS) as Array<keyof TypicalDay["time_allocation"]>).map((key) => (
-                <li key={key}>
-                  {TIME_ALLOCATION_LABELS[key]}: {typicalDay.time_allocation[key]}%
-                </li>
-              ))}
-            </ul>
-          </section>
+          <hr className="divider" />
 
           <section>
-            <h2>4. Who you will work with</h2>
-            {typicalDay.collaborators.map((collab) => (
-              <div key={collab.who}>
-                <strong>{collab.who}</strong>
-                <p>{collab.why}</p>
-                <p>
-                  <em>Example: {collab.example_interaction}</em>
-                </p>
+            <div className="section-title">3. What you will spend most time doing</div>
+            {(Object.keys(TIME_ALLOCATION_LABELS) as Array<keyof TypicalDay["time_allocation"]>).map((key) => (
+              <div className="progress-row" key={key}>
+                <span className="progress-row-label">{TIME_ALLOCATION_LABELS[key]}</span>
+                <span className="progress-track">
+                  <span className="progress-fill" style={{ width: `${typicalDay.time_allocation[key]}%` }} />
+                </span>
+                <span className="progress-value">{typicalDay.time_allocation[key]}%</span>
               </div>
             ))}
           </section>
 
+          <hr className="divider" />
+
           <section>
-            <h2>5. What may surprise you about this job</h2>
+            <div className="section-title">4. Who you will work with</div>
+            {typicalDay.collaborators.map((collab) => (
+              <div className="subcard" key={collab.who}>
+                <strong>{collab.who}</strong>
+                <p>{collab.why}</p>
+                <p className="evidence">Example: {collab.example_interaction}</p>
+              </div>
+            ))}
+          </section>
+
+          <hr className="divider" />
+
+          <section>
+            <div className="section-title">5. What may surprise you about this job</div>
             <ul>
               {typicalDay.surprises.map((s) => (
                 <li key={s}>{s}</li>
@@ -108,7 +114,7 @@ export default function TypicalDayTab({
         </div>
       )}
 
-      {!typicalDay && !loading && <p>Generate a typical day to see it here.</p>}
+      {!typicalDay && !loading && <p className="muted">Generate a typical day to see it here.</p>}
     </div>
   );
 }

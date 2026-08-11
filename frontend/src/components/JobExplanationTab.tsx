@@ -48,100 +48,107 @@ export default function JobExplanationTab({
 
   return (
     <div>
-      <button type="button" onClick={handleGenerate} disabled={loading}>
-        {loading ? "Generating..." : explanation ? "Regenerate explanation" : "Generate explanation"}
-      </button>
+      <div className="form-row">
+        <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
+          {loading ? "Generating..." : explanation ? "Regenerate explanation" : "Generate explanation"}
+        </button>
 
-      {explanation && (
-        <div>
-          <input
-            placeholder="Translate to (e.g. Spanish)"
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-          />
-          <button type="button" onClick={handleTranslate} disabled={translating || !language.trim()}>
-            {translating ? "Translating..." : "Translate"}
-          </button>
-        </div>
-      )}
+        {explanation && (
+          <>
+            <input
+              className="input"
+              style={{ width: 200 }}
+              placeholder="Translate to (e.g. Spanish)"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleTranslate}
+              disabled={translating || !language.trim()}
+            >
+              {translating ? "Translating..." : "Translate"}
+            </button>
+          </>
+        )}
+      </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="alert" style={{ marginTop: 12 }}>{error}</p>}
 
       {shown && (
-        <div>
+        <div style={{ marginTop: 20 }}>
           <section>
-            <h2>1. Understand this job in 1 sentence</h2>
+            <div className="section-title">1. Understand this job in 1 sentence</div>
             <p>{shown.one_sentence_summary}</p>
           </section>
 
+          <hr className="divider" />
+
           <section>
-            <h2>2. Top 3 things you will do</h2>
+            <div className="section-title">2. Top 3 things you will do</div>
             {shown.top_responsibilities.map((item) => (
-              <div key={item.responsibility}>
+              <div className="subcard" key={item.responsibility}>
                 <h3>{item.responsibility}</h3>
                 <p>{item.simple_explanation}</p>
-                <p>
-                  <em>Example: {item.example}</em>
-                </p>
+                <p className="evidence">Example: {item.example}</p>
               </div>
             ))}
           </section>
 
-          <section>
-            <h2>3. What do they really require?</h2>
+          <hr className="divider" />
 
-            <h3>🔴 Hard requirement</h3>
+          <section>
+            <div className="section-title">3. What do they really require?</div>
+
+            <p style={{ fontWeight: 700, marginTop: 12 }}>🔴 Hard requirement</p>
             {shown.requirements.hard_requirements.map((req) => (
-              <div key={req.requirement}>
+              <div className="subcard tier-hard" key={req.requirement}>
                 <strong>{req.requirement}</strong>
                 <p>{req.why_it_matters}</p>
-                <p>
-                  <em>Evidence: "{req.evidence}"</em>
-                </p>
+                <p className="evidence">Evidence: "{req.evidence}"</p>
                 <p>{req.explanation}</p>
               </div>
             ))}
 
-            <h3>🟡 Can be learned / trained</h3>
+            <p style={{ fontWeight: 700, marginTop: 12 }}>🟡 Can be learned / trained</p>
             {shown.requirements.learnable.map((req) => (
-              <div key={req.requirement}>
+              <div className="subcard tier-learnable" key={req.requirement}>
                 <strong>{req.requirement}</strong>
                 <p>{req.why_it_matters}</p>
-                <p>
-                  <em>Evidence: "{req.evidence}"</em>
-                </p>
+                <p className="evidence">Evidence: "{req.evidence}"</p>
                 <p>{req.explanation}</p>
               </div>
             ))}
 
-            <h3>🟢 Bonus point</h3>
+            <p style={{ fontWeight: 700, marginTop: 12 }}>🟢 Bonus point</p>
             {shown.requirements.bonus.map((req) => (
-              <div key={req.requirement}>
+              <div className="subcard tier-bonus" key={req.requirement}>
                 <strong>{req.requirement}</strong>
                 <p>{req.why_it_matters}</p>
-                <p>
-                  <em>Evidence: "{req.evidence}"</em>
-                </p>
+                <p className="evidence">Evidence: "{req.evidence}"</p>
                 <p>{req.explanation}</p>
               </div>
             ))}
           </section>
 
+          <hr className="divider" />
+
           <section>
-            <h2>4. Key terms explained simply</h2>
+            <div className="section-title">4. Key terms explained simply</div>
             {shown.key_terms.map((term) => (
-              <div key={term.term}>
+              <div className="subcard" key={term.term}>
                 <strong>{term.term}</strong>
                 <p>{term.simple_explanation}</p>
-                <p>
-                  <em>Example: {term.example}</em>
-                </p>
+                <p className="evidence">Example: {term.example}</p>
               </div>
             ))}
           </section>
 
+          <hr className="divider" />
+
           <section>
-            <h2>5. Questions they may ask</h2>
+            <div className="section-title">5. Questions they may ask</div>
             <h3>HR questions</h3>
             <ul>
               {shown.likely_questions.hr_questions.map((q) => (
@@ -158,7 +165,7 @@ export default function JobExplanationTab({
         </div>
       )}
 
-      {!explanation && !loading && <p>Generate an explanation to see it here.</p>}
+      {!explanation && !loading && <p className="muted">Generate an explanation to see it here.</p>}
     </div>
   );
 }

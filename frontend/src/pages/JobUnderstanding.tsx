@@ -72,61 +72,84 @@ export default function JobUnderstanding() {
 
   return (
     <div>
-      <h1>Understand a Job</h1>
-      <p>Upload a resume and job description to get started.</p>
+      <div className="page-header">
+        <div>
+          <h1>Understand a Job</h1>
+          <p className="muted">Upload a resume and job description to get started.</p>
+        </div>
+      </div>
 
-      <section>
+      <div className="card">
         <h2>Resume</h2>
-        <form onSubmit={handleResumeUpload}>
+        <form className="form-row" onSubmit={handleResumeUpload}>
           <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={handleFileChange} />
-          <button type="submit" disabled={!resumeFile || uploading}>
+          <button type="submit" className="btn btn-primary" disabled={!resumeFile || uploading}>
             {uploading ? "Uploading..." : "Upload resume"}
           </button>
         </form>
-        {resumeError && <p role="alert">{resumeError}</p>}
+        {resumeError && <p className="alert">{resumeError}</p>}
         {resume && (
-          <div>
-            <p>Parsed: {(resume.parsed_json?.full_name as string) ?? resume.label}</p>
-            <ul>
+          <div style={{ marginTop: 16 }}>
+            <p>
+              Parsed: <strong>{(resume.parsed_json?.full_name as string) ?? resume.label}</strong>
+            </p>
+            <div className="pill-list">
               {((resume.parsed_json?.skills as string[]) ?? []).map((skill) => (
-                <li key={skill}>{skill}</li>
+                <span key={skill} className="badge badge-primary">
+                  {skill}
+                </span>
               ))}
-            </ul>
+            </div>
           </div>
         )}
-      </section>
+      </div>
 
-      <section>
+      <div className="card">
         <h2>Job Description</h2>
         <form onSubmit={handleJdSave}>
           <textarea
+            className="input"
             rows={8}
-            style={{ width: "100%" }}
             placeholder="Paste the job description here"
             value={jdText}
             onChange={(e) => setJdText(e.target.value)}
           />
-          <button type="submit" disabled={!jdText.trim() || savingJd}>
-            {savingJd ? "Saving..." : "Save job description"}
-          </button>
+          <div style={{ marginTop: 12 }}>
+            <button type="submit" className="btn btn-primary" disabled={!jdText.trim() || savingJd}>
+              {savingJd ? "Saving..." : "Save job description"}
+            </button>
+          </div>
         </form>
-        {jdError && <p role="alert">{jdError}</p>}
-        {jobDescription && <p>Saved job description ({jobDescription.raw_text.length} chars).</p>}
-      </section>
+        {jdError && <p className="alert">{jdError}</p>}
+        {jobDescription && (
+          <p className="muted" style={{ marginTop: 10 }}>
+            Saved job description ({jobDescription.raw_text.length} chars).
+          </p>
+        )}
+      </div>
 
       {jobDescription ? (
-        <>
-          <nav>
-            <button onClick={() => setTab("explanation")} disabled={tab === "explanation"}>
+        <div className="card">
+          <div className="tabs">
+            <button
+              className={"tab-button" + (tab === "explanation" ? " active" : "")}
+              onClick={() => setTab("explanation")}
+            >
               Job Explanation
             </button>
-            <button onClick={() => setTab("typical_day")} disabled={tab === "typical_day"}>
+            <button
+              className={"tab-button" + (tab === "typical_day" ? " active" : "")}
+              onClick={() => setTab("typical_day")}
+            >
               Typical Day
             </button>
-            <button onClick={() => setTab("resume_match")} disabled={tab === "resume_match"}>
+            <button
+              className={"tab-button" + (tab === "resume_match" ? " active" : "")}
+              onClick={() => setTab("resume_match")}
+            >
               Resume Match
             </button>
-          </nav>
+          </div>
 
           {tab === "explanation" && (
             <JobExplanationTab
@@ -145,9 +168,9 @@ export default function JobUnderstanding() {
           {tab === "resume_match" && (
             <ResumeMatchTab jobId={jobDescription.id} match={match} onUpdated={setMatch} />
           )}
-        </>
+        </div>
       ) : (
-        <p>Save a job description above to unlock these tabs.</p>
+        <p className="muted">Save a job description above to unlock these tabs.</p>
       )}
     </div>
   );

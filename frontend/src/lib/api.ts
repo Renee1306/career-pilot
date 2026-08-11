@@ -284,3 +284,58 @@ export function addTimelineEntry(applicationId: string, note: string): Promise<A
     body: JSON.stringify({ note }),
   });
 }
+
+export type RoundType = "hr" | "hiring_manager" | "technical" | "other";
+
+export interface QnAItem {
+  question: string;
+  suggested_answer: string;
+}
+
+export interface InterviewQnA {
+  questions: QnAItem[];
+}
+
+export interface InterviewRoundOut {
+  id: string;
+  application_id: string;
+  round_type: RoundType;
+  scheduled_at: string | null;
+  link: string | null;
+  notes: string | null;
+  generated_qna: InterviewQnA | null;
+  created_at: string;
+}
+
+export function listInterviewRounds(applicationId: string): Promise<InterviewRoundOut[]> {
+  return authedFetch(`/interview-rounds?application_id=${applicationId}`);
+}
+
+export function createInterviewRound(payload: {
+  application_id: string;
+  round_type: RoundType;
+  scheduled_at?: string;
+  link?: string;
+  notes?: string;
+}): Promise<InterviewRoundOut> {
+  return authedFetch("/interview-rounds", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateInterviewRound(
+  roundId: string,
+  payload: { round_type?: RoundType; scheduled_at?: string; link?: string; notes?: string }
+): Promise<InterviewRoundOut> {
+  return authedFetch(`/interview-rounds/${roundId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function generateInterviewQnA(roundId: string): Promise<InterviewRoundOut> {
+  return authedFetch(`/interview-rounds/${roundId}/generate-qna`, { method: "POST" });
+}

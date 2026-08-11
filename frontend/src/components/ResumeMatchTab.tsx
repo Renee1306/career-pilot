@@ -128,59 +128,71 @@ export default function ResumeMatchTab({
   };
 
   if (resumes.length === 0) {
-    return <p>Upload a resume above first.</p>;
+    return <p className="muted">Upload a resume above first.</p>;
   }
 
   const segments = match ? buildSegments(tailoredText, match.edits, appliedKeys) : [];
   const active = match && activeEdit !== null ? match.edits[activeEdit] : null;
+  const appliedCount = appliedKeys.size;
 
   return (
     <div>
-      <select value={resumeId} onChange={(e) => handleResumeChange(e.target.value)}>
-        {resumes.map((resume) => (
-          <option key={resume.id} value={resume.id}>
-            {resume.label ?? resume.id}
-          </option>
-        ))}
-      </select>
-      <button type="button" onClick={handleGenerate} disabled={loading || !resumeId}>
-        {loading ? "Generating..." : match ? "Regenerate" : "Generate match"}
-      </button>
+      <div className="form-row">
+        <select className="input" style={{ width: 240 }} value={resumeId} onChange={(e) => handleResumeChange(e.target.value)}>
+          {resumes.map((resume) => (
+            <option key={resume.id} value={resume.id}>
+              {resume.label ?? resume.id}
+            </option>
+          ))}
+        </select>
+        <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={loading || !resumeId}>
+          {loading ? "Generating..." : match ? "Regenerate" : "Generate match"}
+        </button>
+      </div>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="alert" style={{ marginTop: 12 }}>{error}</p>}
 
       {match && (
-        <div>
-          <p>Match score: {match.match_score}/100</p>
+        <div style={{ marginTop: 20 }}>
+          <div className="form-row" style={{ marginBottom: 16 }}>
+            <span className="badge badge-primary" style={{ fontSize: 14, padding: "6px 16px" }}>
+              Match score: {match.match_score}/100
+            </span>
+            {match.edits.length > 0 && (
+              <span className="badge badge-muted">
+                {appliedCount}/{match.edits.length} suggestions applied
+              </span>
+            )}
+          </div>
 
-          <details>
-            <summary>Matched / missing skills</summary>
-            <h4>Matched</h4>
-            <ul>
+          <details className="subcard">
+            <summary style={{ cursor: "pointer", fontWeight: 700 }}>Matched / missing skills</summary>
+            <div className="pill-list" style={{ marginTop: 10 }}>
               {match.matched_skills.map((s) => (
-                <li key={s}>{s}</li>
+                <span key={s} className="badge badge-success">
+                  {s}
+                </span>
               ))}
-            </ul>
-            <h4>Missing</h4>
-            <ul>
+            </div>
+            <div className="pill-list" style={{ marginTop: 10 }}>
               {match.missing_skills.map((s) => (
-                <li key={s}>{s}</li>
+                <span key={s} className="badge badge-danger">
+                  {s}
+                </span>
               ))}
-            </ul>
+            </div>
           </details>
 
-          <p>Click a highlighted phrase in the resume below to see the suggested change.</p>
+          <p className="muted" style={{ marginTop: 16 }}>
+            Click a highlighted phrase in the resume below to see the suggested change.
+          </p>
 
-          <div style={{ whiteSpace: "pre-wrap", border: "1px solid #ccc", padding: "1rem" }}>
+          <div className="subcard" style={{ whiteSpace: "pre-wrap", background: "var(--color-surface)", border: "1px solid var(--color-border)" }}>
             {segments.map((seg, i) =>
               seg.type === "text" ? (
                 <span key={i}>{seg.content}</span>
               ) : (
-                <mark
-                  key={i}
-                  style={{ backgroundColor: "#fff59d", cursor: "pointer" }}
-                  onClick={() => setActiveEdit(seg.editIndex)}
-                >
+                <mark key={i} className="highlight" onClick={() => setActiveEdit(seg.editIndex)}>
                   {seg.content}
                 </mark>
               )
@@ -188,24 +200,28 @@ export default function ResumeMatchTab({
           </div>
 
           {active && (
-            <div style={{ border: "1px solid #999", padding: "1rem", marginTop: "0.5rem" }}>
+            <div className="subcard" style={{ border: "1px solid var(--color-primary)", marginTop: 12 }}>
               <h4>Original</h4>
               <p>{active.original_text}</p>
               <h4>Suggestion</h4>
               <p>{active.suggested_text}</p>
               <h4>Reason</h4>
-              <p>{active.reason}</p>
-              <button type="button" onClick={() => handleApply(activeEdit!)}>
-                Apply
-              </button>
-              <button type="button" onClick={() => setActiveEdit(null)}>
-                Dismiss
-              </button>
+              <p className="muted">{active.reason}</p>
+              <div className="form-row">
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => handleApply(activeEdit!)}>
+                  Apply
+                </button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setActiveEdit(null)}>
+                  Dismiss
+                </button>
+              </div>
             </div>
           )}
 
+          <hr className="divider" />
+
           <section>
-            <h3>Summary of changes</h3>
+            <div className="section-title">Summary of changes</div>
             <p>{match.summary}</p>
             <ul>
               {match.edits.map((edit, i) => (
@@ -217,7 +233,7 @@ export default function ResumeMatchTab({
             </ul>
           </section>
 
-          <button type="button" onClick={handleExport} disabled={exporting}>
+          <button type="button" className="btn btn-primary" onClick={handleExport} disabled={exporting}>
             {exporting ? "Exporting..." : "Export to PDF"}
           </button>
         </div>

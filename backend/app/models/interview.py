@@ -1,9 +1,18 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 RoundType = Literal["hr", "hiring_manager", "technical", "other"]
+
+
+class QnAItem(BaseModel):
+    question: str
+    suggested_answer: str = Field(description="A suggested answer grounded in the candidate's actual resume")
+
+
+class InterviewQnA(BaseModel):
+    questions: list[QnAItem] = Field(description="5-8 likely questions for this interview round")
 
 
 class InterviewRoundCreate(BaseModel):

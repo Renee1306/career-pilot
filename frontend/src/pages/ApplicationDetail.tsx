@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import InterviewRounds from "../components/InterviewRounds";
 import {
   addTimelineEntry,
   getApplication,
@@ -64,25 +65,28 @@ export default function ApplicationDetail() {
     }
   };
 
-  if (error) return <p role="alert">{error}</p>;
-  if (!application) return <p>Loading...</p>;
+  if (error) return <p className="alert">{error}</p>;
+  if (!application) return <p className="muted">Loading...</p>;
 
   return (
     <div>
-      <h1>{job ? [job.title, job.company].filter(Boolean).join(" @ ") || "Application" : "Application"}</h1>
-
-      <section>
-        <h2>Status</h2>
-        <select value={application.status} onChange={(e) => handleStatusChange(e.target.value as ApplicationStatus)}>
+      <div className="page-header">
+        <h1>{job ? [job.title, job.company].filter(Boolean).join(" @ ") || "Application" : "Application"}</h1>
+        <select
+          className="input"
+          style={{ width: 200 }}
+          value={application.status}
+          onChange={(e) => handleStatusChange(e.target.value as ApplicationStatus)}
+        >
           {STATUSES.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
         </select>
-      </section>
+      </div>
 
-      <section>
+      <div className="card">
         <h2>Position</h2>
         {job ? (
           <div>
@@ -90,44 +94,52 @@ export default function ApplicationDetail() {
               {job.title ?? "Untitled"} {job.company ? `at ${job.company}` : ""}
             </p>
             <details>
-              <summary>Full job description</summary>
-              <p style={{ whiteSpace: "pre-wrap" }}>{job.raw_text}</p>
+              <summary style={{ cursor: "pointer", fontWeight: 600 }}>Full job description</summary>
+              <p style={{ whiteSpace: "pre-wrap", marginTop: 10 }}>{job.raw_text}</p>
             </details>
           </div>
         ) : (
-          <p>No job description linked.</p>
+          <p className="muted">No job description linked.</p>
         )}
-        {resume && <p>Resume used: {resume.label ?? resume.id}</p>}
-      </section>
+        {resume && <p className="muted">Resume used: {resume.label ?? resume.id}</p>}
+      </div>
 
-      <section>
+      <div className="card">
         <h2>Timeline</h2>
         {application.timeline.length === 0 ? (
-          <p>No timeline entries yet.</p>
+          <p className="muted">No timeline entries yet.</p>
         ) : (
-          <ul>
+          <ul className="stack" style={{ listStyle: "none", padding: 0, marginBottom: 14 }}>
             {application.timeline.map((entry, i) => (
-              <li key={i}>
-                {new Date(entry.date).toLocaleString()} - {entry.note}
+              <li key={i} className="subcard">
+                <span className="muted">{new Date(entry.date).toLocaleString()}</span> — {entry.note}
               </li>
             ))}
           </ul>
         )}
-        <input
-          placeholder="e.g. Called HR, phone screen scheduled for next Tuesday"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-        <button type="button" onClick={handleAddNote} disabled={addingNote || !note.trim()}>
-          {addingNote ? "Adding..." : "Add note"}
-        </button>
-      </section>
+        <div className="form-row">
+          <input
+            className="input"
+            style={{ flex: 1 }}
+            placeholder="e.g. Called HR, phone screen scheduled for next Tuesday"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <button type="button" className="btn btn-primary" onClick={handleAddNote} disabled={addingNote || !note.trim()}>
+            {addingNote ? "Adding..." : "Add note"}
+          </button>
+        </div>
+      </div>
 
-      <section>
+      <div className="card">
         <h2>Interview Prep</h2>
-        <button disabled>Generate interview questions</button>
-        <p>Coming soon.</p>
-      </section>
+        {(!job || !resume) && (
+          <p className="muted" style={{ marginBottom: 12 }}>
+            Link both a job description and a resume to this application to generate interview Q&amp;A.
+          </p>
+        )}
+        <InterviewRounds applicationId={application.id} />
+      </div>
     </div>
   );
 }
