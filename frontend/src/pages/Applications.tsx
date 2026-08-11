@@ -116,7 +116,20 @@ export default function Applications() {
 
       {error && <p className="alert" style={{ marginTop: 12 }}>{error}</p>}
 
-      <div className="board" style={{ marginTop: 20 }}>
+      <div className="flight-route" style={{ marginTop: 24 }}>
+        {COLUMNS.map((col, i) => (
+          <div key={col.status} className="flight-route-leg">
+            <span className={"flight-route-node" + (col.status === "rejected" ? " is-diverted" : "")} />
+            {i < COLUMNS.length - 1 && (
+              <span
+                className={"flight-route-line" + (COLUMNS[i + 1].status === "rejected" ? " is-diverted" : "")}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="board" style={{ marginTop: 8 }}>
         {COLUMNS.map((col) => {
           const colApps = applications.filter((app) => app.status === col.status);
           return (
