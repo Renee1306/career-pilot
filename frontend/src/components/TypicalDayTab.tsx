@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { generateTypicalDay, type TypicalDay } from "../lib/api";
 
+const TIME_ALLOCATION_LABELS: Record<keyof TypicalDay["time_allocation"], string> = {
+  technical_development: "Technical / Development",
+  meetings_communication: "Meetings",
+  analysis_problem_solving: "Analysis / Problem Solving",
+  testing_qa: "Testing / QA",
+  documentation_administrative: "Documentation / Other",
+  research_learning: "Research / Learning",
+  other: "Other",
+};
+
 export default function TypicalDayTab({
   jobId,
   typicalDay,
@@ -36,13 +46,65 @@ export default function TypicalDayTab({
 
       {typicalDay && (
         <div>
-          <p>{typicalDay.summary}</p>
-          {typicalDay.schedule.map((block) => (
-            <div key={block.time_block}>
-              <h3>{block.time_block}</h3>
-              <p>{block.activities}</p>
-            </div>
-          ))}
+          <section>
+            <h2>1. What your day probably looks like</h2>
+            <p>{typicalDay.overview}</p>
+          </section>
+
+          <section>
+            <h2>2. Day breakdown</h2>
+            {(["morning", "afternoon", "end_of_day"] as const).map((key) => {
+              const period = typicalDay.day_breakdown[key];
+              return (
+                <div key={key}>
+                  <h3>
+                    {key === "end_of_day" ? "End of Day" : key[0].toUpperCase() + key.slice(1)} (
+                    {period.approximate_time})
+                  </h3>
+                  <p>
+                    <strong>{period.activity}</strong>
+                  </p>
+                  <p>{period.description}</p>
+                  <p>
+                    <em>{period.rationale}</em>
+                  </p>
+                </div>
+              );
+            })}
+          </section>
+
+          <section>
+            <h2>3. What you will spend most time doing</h2>
+            <ul>
+              {(Object.keys(TIME_ALLOCATION_LABELS) as Array<keyof TypicalDay["time_allocation"]>).map((key) => (
+                <li key={key}>
+                  {TIME_ALLOCATION_LABELS[key]}: {typicalDay.time_allocation[key]}%
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2>4. Who you will work with</h2>
+            {typicalDay.collaborators.map((collab) => (
+              <div key={collab.who}>
+                <strong>{collab.who}</strong>
+                <p>{collab.why}</p>
+                <p>
+                  <em>Example: {collab.example_interaction}</em>
+                </p>
+              </div>
+            ))}
+          </section>
+
+          <section>
+            <h2>5. What may surprise you about this job</h2>
+            <ul>
+              {typicalDay.surprises.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+          </section>
         </div>
       )}
 

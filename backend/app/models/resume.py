@@ -47,3 +47,8 @@ class ResumeOut(BaseModel):
     parsed_json: dict | None
     version: int
     created_at: datetime
+
+
+class ResumeExportRequest(BaseModel):
+    text: str
+    filename: str | None = None
