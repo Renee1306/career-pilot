@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 
@@ -7,6 +9,7 @@ from app.middleware.supabase_client import get_service_client
 from app.models.gmail import GmailConnectUrl, GmailSyncResult, GmailSyncStatus
 from app.services import gmail_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/gmail", tags=["gmail"])
 
 
@@ -42,6 +45,7 @@ def callback(code: str, state: str):
         gmail_service.save_connection(get_service_client(), user_id, google_email, refresh_token)
         return RedirectResponse(f"{settings.frontend_url}/applications?gmail_connected=true")
     except Exception:
+        logger.exception("Gmail OAuth callback failed")
         return RedirectResponse(f"{settings.frontend_url}/applications?gmail_error=connect_failed")
 
 
