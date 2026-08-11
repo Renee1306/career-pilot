@@ -12,11 +12,9 @@ An AI career copilot with two halves:
    plain-language job explanation, a "typical day" preview, and a resume-match analysis with
    inline, applyable edit suggestions, then export the tailored resume to PDF.
 2. **Track applications & prep for interviews** — a Kanban board of applications, a timeline of
-   notes per application, and AI-generated interview Q&A (grounded in the actual resume) per
-   interview round.
-
-Not yet built: Gmail sync/auto-classification of applications (deferred — see "Not built yet"
-below).
+   notes per application, AI-generated interview Q&A (grounded in the actual resume) per
+   interview round, and Gmail sync to auto-detect application updates from your inbox (see
+   "Gmail sync" below).
 
 ## Tech stack
 
@@ -217,8 +215,10 @@ table — nothing today saves intermediate tailoring state.
 5. Job Explanation + Typical Day rewritten to the exact 5-section specs the user provided;
    full frontend redesign to match `reference.png`; interview prep (Q&A generation + rounds UI)
 6. Gmail sync (OAuth connect/callback, on-demand inbox scan + AI classification, review-before-
-   apply UI) — code complete and verified up to the Google-consent boundary; awaiting the user's
-   first real click-through to confirm the full round trip (see "Gmail sync" section above)
+   apply UI) — code complete; hit and fixed a real bug (`supabase-py` rejecting the service-role
+   key format, see gotchas below) during the user's first live connect attempt. Full round trip
+   (connect → callback saves token → sync against a real inbox) still pending final confirmation
+   from the user (see "Gmail sync" section above)
 
 ## Gmail sync
 
@@ -327,5 +327,14 @@ Or use `.claude/launch.json` with the `run`/preview tooling — two configs, `ba
   import time.
 - **Gemini model names churn** — see the quota gotcha above. Always verify a model name against
   `genai.Client(...).models.list()` for the actual API key before hardcoding it.
+- **supabase-py 2.11.0 rejects new-format Supabase keys**: `SUPABASE_SERVICE_ROLE_KEY` in this
+  project is in Supabase's newer `sb_secret_...` format (not a legacy JWT). supabase-py 2.11.0's
+  `create_client()` validates the key against a JWT-shaped regex and raises
+  `SupabaseException("Invalid API key")` for anything else — this broke `get_service_client()`
+  (used by the Gmail OAuth callback) with every call silently caught by a bare `except Exception`
+  and surfaced only as a generic `gmail_error=connect_failed`. Fixed by upgrading to
+  `supabase==2.31.0`, which accepts the new key format. If any *other* new "Invalid API key" /
+  silently-generic-failure shows up in something that touches a Supabase client, check the
+  installed `supabase` version first before assuming the key itself is wrong.
 - Git line-ending warnings (`LF will be replaced by CRLF`) on every commit are expected on this
   Windows checkout with no `.gitattributes` — harmless, not a bug.
