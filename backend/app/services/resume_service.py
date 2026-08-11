@@ -1,21 +1,55 @@
+import uuid
+
 from supabase import Client
 
+from app.agents.resume_parser import parse_resume
 from app.models.resume import ResumeCreate
 
 TABLE = "resumes"
+BUCKET = "resumes"
+SIGNED_URL_EXPIRY_SECONDS = 60 * 60
+
+
+def _with_signed_url(client: Client, row: dict) -> dict:
+    path = row.get("file_url")
+    if path:
+        signed = client.storage.from_(BUCKET).create_signed_url(path, SIGNED_URL_EXPIRY_SECONDS)
+        row = {**row, "file_url": signed.get("signedURL") or signed.get("signedUrl")}
+    return row
 
 
 def list_resumes(client: Client, user_id: str) -> list[dict]:
     res = client.table(TABLE).select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
-    return res.data
+    return [_with_signed_url(client, row) for row in res.data]
 
 
 def create_resume(client: Client, user_id: str, payload: ResumeCreate) -> dict:
     row = {"user_id": user_id, **payload.model_dump(exclude_none=True)}
     res = client.table(TABLE).insert(row).execute()
-    return res.data[0]
+    return _with_signed_url(client, res.data[0])
 
 
 def get_resume(client: Client, user_id: str, resume_id: str) -> dict | None:
     res = client.table(TABLE).select("*").eq("user_id", user_id).eq("id", resume_id).maybe_single().execute()
-    return res.data if res else None
+    if res is None or res.data is None:
+        return None
+    return _with_signed_url(client, res.data)
+
+
+def upload_and_parse_resume(
+    client: Client, user_id: str, filename: str, file_bytes: bytes, content_type: str, label: str | None
+) -> dict:
+    storage_path = f"{user_id}/{uuid.uuid4()}_{filename}"
+    client.storage.from_(BUCKET).upload(storage_path, file_bytes, {"content-type": content_type})
+
+    parsed = parse_resume(file_bytes, content_type)
+
+    row = {
+        "user_id": user_id,
+        "label": label,
+        "file_url": storage_path,
+        "parsed_text": parsed.raw_text,
+        "parsed_json": parsed.model_dump(exclude={"raw_text"}),
+    }
+    res = client.table(TABLE).insert(row).execute()
+    return _with_signed_url(client, res.data[0])
