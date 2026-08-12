@@ -2,11 +2,9 @@ from supabase import Client
 
 from app.agents.job_explainer import explain_job
 from app.agents.orchestrator import run_full_analysis
-from app.agents.resume_matcher import match_resume
-from app.agents.translator import translate_job_explanation
+from app.agents.translator import translate_structured
 from app.agents.typical_day import generate_typical_day
-from app.models.job import JobDescriptionCreate, JobExplanation
-from app.services import resume_service
+from app.models.job import JobDescriptionCreate, JobExplanation, TypicalDay
 
 JOBS_TABLE = "job_descriptions"
 ANALYSES_TABLE = "job_analyses"
@@ -94,34 +92,13 @@ def generate_typical_day_analysis(client: Client, user_id: str, job_id: str) -> 
     return res.data[0]
 
 
-def generate_resume_match(client: Client, user_id: str, job_id: str, resume_id: str) -> dict:
+def generate_full_analysis(client: Client, user_id: str, job_id: str) -> dict:
+    """Both analyses are JD-only, so this no longer takes (or needs) a resume."""
     job = get_job_description(client, user_id, job_id)
     if job is None:
         raise ValueError("Job description not found")
-    resume = resume_service.get_resume(client, user_id, resume_id)
-    if resume is None:
-        raise ValueError("Resume not found")
 
-    match = match_resume(job["raw_text"], resume.get("parsed_text") or "")
-    analysis = _get_or_create_analysis(client, user_id, job_id)
-    res = (
-        client.table(ANALYSES_TABLE)
-        .update({"resume_id": resume_id, "match_suggestions": match.model_dump()})
-        .eq("id", analysis["id"])
-        .execute()
-    )
-    return res.data[0]
-
-
-def generate_full_analysis(client: Client, user_id: str, job_id: str, resume_id: str) -> dict:
-    job = get_job_description(client, user_id, job_id)
-    if job is None:
-        raise ValueError("Job description not found")
-    resume = resume_service.get_resume(client, user_id, resume_id)
-    if resume is None:
-        raise ValueError("Resume not found")
-
-    results = run_full_analysis(job["raw_text"], resume.get("parsed_text") or "")
+    results = run_full_analysis(job["raw_text"])
 
     analysis = _get_or_create_analysis(client, user_id, job_id)
     res = (
@@ -130,8 +107,6 @@ def generate_full_analysis(client: Client, user_id: str, job_id: str, resume_id:
             {
                 "explanation": results.explanation.model_dump(),
                 "typical_day": results.typical_day.model_dump(),
-                "resume_id": resume_id,
-                "match_suggestions": results.resume_match.model_dump(),
             }
         )
         .eq("id", analysis["id"])
@@ -146,12 +121,30 @@ def translate_explanation(client: Client, user_id: str, job_id: str, language: s
         raise ValueError("Generate the job explanation before translating it")
 
     explanation = JobExplanation.model_validate(analysis["explanation"])
-    translated = translate_job_explanation(explanation, language)
+    translated = translate_structured(explanation, language)
 
     translations = {**(analysis.get("translations") or {}), language: translated.model_dump()}
     res = (
         client.table(ANALYSES_TABLE)
         .update({"translations": translations})
+        .eq("id", analysis["id"])
+        .execute()
+    )
+    return res.data[0]
+
+
+def translate_typical_day(client: Client, user_id: str, job_id: str, language: str) -> dict:
+    analysis = get_analysis(client, user_id, job_id)
+    if analysis is None or not analysis.get("typical_day"):
+        raise ValueError("Generate the typical day before translating it")
+
+    typical_day = TypicalDay.model_validate(analysis["typical_day"])
+    translated = translate_structured(typical_day, language)
+
+    translations = {**(analysis.get("typical_day_translations") or {}), language: translated.model_dump()}
+    res = (
+        client.table(ANALYSES_TABLE)
+        .update({"typical_day_translations": translations})
         .eq("id", analysis["id"])
         .execute()
     )

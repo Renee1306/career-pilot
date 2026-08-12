@@ -88,28 +88,6 @@ class TypicalDay(BaseModel):
     surprises: list[str] = Field(description="3-5 realistic, labeled-as-estimate observations about the role")
 
 
-class ResumeEdit(BaseModel):
-    original_text: str = Field(
-        description="An exact, character-for-character contiguous substring copied from the resume text"
-    )
-    suggested_text: str = Field(description="The proposed replacement for original_text")
-    reason: str = Field(description="Why this change would better match the job")
-
-
-class ResumeMatch(BaseModel):
-    match_score: int = Field(description="0-100 estimate of how well the resume matches the job")
-    matched_skills: list[str] = Field(default_factory=list)
-    missing_skills: list[str] = Field(default_factory=list)
-    edits: list[ResumeEdit] = Field(
-        default_factory=list, description="Up to 8 highest-impact, specific edit suggestions"
-    )
-    summary: str = Field(description="A short paragraph summarizing the overall recommended changes and why")
-
-
-class ResumeMatchRequest(BaseModel):
-    resume_id: str
-
-
 class TranslateRequest(BaseModel):
     language: str = Field(description="Target language, e.g. 'Spanish' or 'zh-Hans'")
 
@@ -132,12 +110,14 @@ class JobDescriptionOut(BaseModel):
 
 
 class JobAnalysisOut(BaseModel):
+    """Purely JD-derived now - the Resume Match tab and the page's resume picker were removed, so
+    the analysis row no longer carries `resume_id`/`match_suggestions` (both columns dropped)."""
+
     id: str
     user_id: str
     job_description_id: str
-    resume_id: str | None
     explanation: dict | None
     typical_day: dict | None
-    match_suggestions: dict | None
     translations: dict
+    typical_day_translations: dict = Field(default_factory=dict)
     created_at: datetime

@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  createApplication,
-  getGmailConnectUrl,
-  getGmailStatus,
-  syncGmail,
-  updateApplication,
-  type DetectedUpdate,
-  type GmailSyncStatus,
-} from "../lib/api";
+import IconPopover from "./IconPopover";
+import { getGmailConnectUrl, getGmailStatus, syncGmail, type GmailSyncStatus } from "../lib/api";
+
+function IconMail() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 6-10 7L2 6" />
+    </svg>
+  );
+}
 
 export default function GmailSync({ onApplicationsChanged }: { onApplicationsChanged: () => void }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -16,8 +18,7 @@ export default function GmailSync({ onApplicationsChanged }: { onApplicationsCha
   const [error, setError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [detected, setDetected] = useState<DetectedUpdate[] | null>(null);
-  const [resolved, setResolved] = useState<Set<string>>(new Set());
+  const [lastResult, setLastResult] = useState<{ jobRelated: number; scanned: number } | null>(null);
 
   const loadStatus = () => {
     getGmailStatus()
@@ -50,98 +51,71 @@ export default function GmailSync({ onApplicationsChanged }: { onApplicationsCha
     }
   };
 
+  // Sync writes happen server-side now (new/matched applications and their timeline entries are
+  // created directly in sync_gmail) - the frontend just triggers the sync and reports the summary.
   const handleSync = async () => {
     setError(null);
     setSyncing(true);
     try {
       const result = await syncGmail();
-      setDetected(result.detected);
-      setResolved(new Set());
-      loadStatus();
+      const jobRelated = result.detected.length;
+      setLastResult({ jobRelated, scanned: result.scanned });
+      if (jobRelated > 0) onApplicationsChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
+      setError(
+        err instanceof Error
+          ? `${err.message} — some updates may still have been applied; check the board below.`
+          : "Sync failed"
+      );
     } finally {
+      // Always refresh, including on failure. sync_gmail writes each application/timeline entry as
+      // it goes, so a request that dies in flight (long sync, dropped connection) still leaves real
+      // changes in the DB - the old code only refreshed on success, which is why a failed sync
+      // looked like it did nothing until the user manually reloaded the page.
+      loadStatus();
+      onApplicationsChanged();
       setSyncing(false);
     }
   };
 
-  const handleAccept = async (update: DetectedUpdate) => {
-    try {
-      if (update.suggested_action === "update_status" && update.matching_application_id && update.detected_status) {
-        await updateApplication(update.matching_application_id, { status: update.detected_status });
-      } else if (update.suggested_action === "create_application") {
-        await createApplication({ status: update.detected_status ?? "applied" });
-      }
-      setResolved((prev) => new Set(prev).add(update.gmail_message_id));
-      onApplicationsChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to apply update");
-    }
-  };
-
-  const handleDismiss = (update: DetectedUpdate) => {
-    setResolved((prev) => new Set(prev).add(update.gmail_message_id));
-  };
-
   return (
-    <div className="card">
-      <h2>Gmail Sync</h2>
-      {error && <p className="alert">{error}</p>}
+    <IconPopover icon={<IconMail />} title="Gmail sync" dot={status?.connected ? "success" : null}>
+      {() => (
+        <div>
+          <div className="section-title">Gmail Sync</div>
+          {error && <p className="alert" style={{ marginBottom: 10 }}>{error}</p>}
 
-      {!status ? (
-        <p className="muted">Loading...</p>
-      ) : status.connected ? (
-        <div>
-          <p className="muted">
-            Connected as {status.google_email}
-            {status.last_synced_at && ` — last synced ${new Date(status.last_synced_at).toLocaleString()}`}
-          </p>
-          <button type="button" className="btn btn-primary" onClick={handleSync} disabled={syncing}>
-            {syncing ? "Scanning inbox..." : "Sync now"}
-          </button>
-        </div>
-      ) : (
-        <div>
-          <p className="muted">Connect Gmail to auto-detect application updates from your inbox.</p>
-          <button type="button" className="btn btn-primary" onClick={handleConnect} disabled={connecting}>
-            {connecting ? "Redirecting..." : "Connect Gmail"}
-          </button>
+          {!status ? (
+            <p className="muted">Loading...</p>
+          ) : status.connected ? (
+            <div>
+              <p className="muted" style={{ fontSize: 13 }}>
+                Connected as {status.google_email}
+                {status.last_synced_at && ` — last synced ${new Date(status.last_synced_at).toLocaleString()}`}
+              </p>
+              <button type="button" className="btn btn-primary btn-sm" onClick={handleSync} disabled={syncing}>
+                {syncing ? "Scanning inbox..." : "Sync now"}
+              </button>
+              {lastResult && (
+                <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+                  Scanned {lastResult.scanned} new email{lastResult.scanned === 1 ? "" : "s"} —{" "}
+                  {lastResult.jobRelated} job-related update{lastResult.jobRelated === 1 ? "" : "s"} applied to
+                  your applications.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div>
+              <p className="muted" style={{ fontSize: 13 }}>
+                Connect Gmail to auto-detect application updates from your inbox.
+              </p>
+              <button type="button" className="btn btn-primary btn-sm" onClick={handleConnect} disabled={connecting}>
+                {connecting ? "Redirecting..." : "Connect Gmail"}
+              </button>
+            </div>
+          )}
         </div>
       )}
-
-      {detected && (
-        <div style={{ marginTop: 16 }}>
-          <div className="section-title">
-            Detected {detected.length} update{detected.length === 1 ? "" : "s"}
-          </div>
-          {detected.length === 0 && <p className="muted">No application-related emails found.</p>}
-          <div className="stack">
-            {detected
-              .filter((u) => !resolved.has(u.gmail_message_id))
-              .map((update) => (
-                <div key={update.gmail_message_id} className="subcard">
-                  <p style={{ fontWeight: 700 }}>{update.subject}</p>
-                  <p className="muted">{update.snippet}</p>
-                  <p>
-                    {update.company && <span className="badge badge-primary">{update.company}</span>}{" "}
-                    {update.detected_status && <span className="badge badge-muted">{update.detected_status}</span>}
-                  </p>
-                  <p className="evidence">{update.reasoning}</p>
-                  <div className="form-row">
-                    {update.suggested_action !== "ignore" && (
-                      <button type="button" className="btn btn-primary btn-sm" onClick={() => handleAccept(update)}>
-                        {update.suggested_action === "create_application" ? "Track this application" : "Update status"}
-                      </button>
-                    )}
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => handleDismiss(update)}>
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-    </div>
+    </IconPopover>
   );
 }

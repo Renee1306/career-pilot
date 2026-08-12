@@ -1,0 +1,48 @@
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  /* :root carries the app's cream --color-bg, which paints the whole canvas (the
+     browser propagates the html background when body has none of its own) - without
+     this, that cream shows through anywhere the (usually shorter-than-a-full-page)
+     resume content doesn't cover, instead of a clean white page. */
+  html {
+    background: #fff !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #resume-print-root,
+  #resume-print-root * {
+    visibility: visible;
+  }
+
+  /* Exact A4 width, and min-height explicitly reset to 0: the on-screen rule gives .resume-page a
+     full-A4 min-height (1123px) so the preview looks like a real sheet, but carrying that into
+     print makes the content box round up past the printable area and emit a trailing blank page.
+     The paper is already A4 via @page above, so the sheet is A4 regardless of content height. */
+  #resume-print-root {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210mm;
+    min-height: 0;
+    box-shadow: none;
+    transform: none !important;
+  }
+
+  /* .resume-page-container (see ResumePreview.tsx) holds #resume-print-root at a small
+     inline height + overflow:hidden for the on-screen scale-to-fit preview - both still
+     apply during print unless neutralized here, and overflow:hidden on an ancestor clips
+     an absolutely-positioned descendant's paint regardless of which element is its actual
+     containing block, silently cropping the export to whatever tiny on-screen size was
+     last measured. */
+  .resume-page-container {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}

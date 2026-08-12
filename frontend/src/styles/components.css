@@ -2,25 +2,29 @@
 
 .app-shell {
   display: flex;
-  min-height: 100vh;
-}
-
-.sidebar {
-  width: 240px;
-  flex-shrink: 0;
-  padding: 24px 16px;
-  display: flex;
   flex-direction: column;
-  gap: 24px;
+  height: 100vh;
 }
 
-.sidebar-logo {
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 14px 40px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar-logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 8px;
   font-size: 18px;
   font-weight: 800;
+  flex-shrink: 0;
 }
 
 .sidebar-logo-mark {
@@ -34,53 +38,57 @@
   justify-content: center;
   font-weight: 800;
   font-size: 16px;
+  flex-shrink: 0;
 }
 
-.sidebar-section-label {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-  padding: 0 12px;
-}
-
-.sidebar-nav {
+.topbar-nav {
   display: flex;
-  flex-direction: column;
   gap: 4px;
+  flex: 1;
 }
 
-.sidebar-nav-item {
+.topbar-nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 10px 16px;
   border-radius: var(--radius-pill);
   color: var(--color-text-muted);
   font-weight: 600;
   font-size: 14px;
 }
 
-.sidebar-nav-item:hover {
+.topbar-nav-item:hover {
   background: var(--color-primary-soft);
   color: var(--color-primary-hover);
   text-decoration: none;
 }
 
-.sidebar-nav-item.active {
+.topbar-nav-item.active {
   background: var(--color-primary);
   color: #fff;
 }
 
-.sidebar-footer {
-  margin-top: auto;
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.topbar-email {
+  font-size: 13px;
 }
 
 .main-content {
   flex: 1;
   min-width: 0;
-  padding: 32px 40px;
+  min-height: 0;
+  width: 100%;
+  padding: 28px 40px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 
 .page-header {
@@ -88,32 +96,89 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
-/* Split layout: fixed-width left column, flexible right column */
+/* Wraps a page's whole content when it needs to fill .main-content's exact remaining height
+   (see .split-layout below) instead of just flowing to its natural content height. */
+.page-fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Split layout: fixed-width left column, flexible right column. Fills whatever height
+   .main-content has left after the page header, so the page itself never needs to scroll -
+   only the individual boxes inside (each .card, .analysis-scroll) scroll their own overflow. */
 
 .split-layout {
   display: flex;
   gap: 20px;
-  align-items: flex-start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .split-layout-left {
   width: 380px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+}
+
+.split-layout-left .card {
+  margin-top: 0;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .split-layout-right {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.split-layout-right .card {
+  height: 100%;
+  width: 100%;
+}
+
+.analysis-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.analysis-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 @media (max-width: 900px) {
   .split-layout {
     flex-direction: column;
+    flex: none;
   }
   .split-layout-left {
     width: 100%;
+  }
+  .split-layout-left .card {
+    flex: none;
+    overflow-y: visible;
+  }
+  .split-layout-right .card {
+    height: auto;
+  }
+  .analysis-scroll {
+    overflow-y: visible;
   }
 }
 
@@ -308,6 +373,13 @@ mark.highlight {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border-radius: var(--radius-md);
+  padding: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.board-column-drag-over {
+  background-color: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 .board-column-title {
@@ -320,23 +392,67 @@ mark.highlight {
 }
 
 .board-card {
+  position: relative;
   background: var(--color-surface);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
+  cursor: grab;
 }
 
-.board-card-title {
+.board-card:active {
+  cursor: grabbing;
+}
+
+.board-card-delete {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.board-card-delete:hover {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.board-card-company {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
+  padding-right: 20px;
+}
+
+.board-card-position {
+  font-size: 13px;
+  color: var(--color-text-muted);
 }
 
 .board-card-meta {
   font-size: 12px;
   color: var(--color-text-muted);
+  margin-top: 6px;
+}
+
+.board-card-updated {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
 }
 
 /* Misc */
@@ -387,6 +503,7 @@ mark.highlight {
 }
 
 .progress-track {
+  display: block;
   flex: 1;
   height: 8px;
   border-radius: var(--radius-pill);
@@ -395,6 +512,7 @@ mark.highlight {
 }
 
 .progress-fill {
+  display: block;
   height: 100%;
   border-radius: var(--radius-pill);
   background: var(--color-primary);
@@ -432,6 +550,416 @@ mark.highlight {
   font-style: italic;
 }
 
+.edit-popup {
+  position: fixed;
+  width: 320px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card-hover);
+  padding: 14px 16px;
+  z-index: 35;
+}
+
+.edit-popup h4 {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.edit-popup h4:first-child {
+  margin-top: 0;
+}
+
+.edit-popup p {
+  font-size: 13px;
+  margin: 0 0 6px;
+}
+
+/* Chatbot */
+
+.chat-fab {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card-hover);
+  cursor: pointer;
+  z-index: 40;
+}
+
+.chat-fab:hover {
+  background: var(--color-primary-hover);
+}
+
+.chat-panel {
+  position: fixed;
+  right: 28px;
+  bottom: 96px;
+  width: 340px;
+  height: 460px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-hover);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 40;
+}
+
+.chat-panel-header {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.chat-panel-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-message-user,
+.chat-message-assistant {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.chat-message-user {
+  align-self: flex-end;
+  background: var(--color-primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message-assistant {
+  align-self: flex-start;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-panel-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.chat-panel-input .input {
+  flex: 1;
+}
+
+.lang-select {
+  position: relative;
+  display: inline-block;
+}
+
+.lang-select-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 240px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card-hover);
+  padding: 6px;
+  z-index: 30;
+}
+
+.lang-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.lang-select-option:hover {
+  background: var(--color-bg);
+}
+
+.lang-select-option.active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+.lang-select-check {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-success);
+}
+
+.lang-select-empty {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* Icon button + popover panel (Gmail sync, track-a-new-application, etc.) */
+
+.applications-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-popover {
+  position: relative;
+  display: inline-flex;
+}
+
+.icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.icon-btn:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.icon-btn.active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+  border-color: var(--color-primary-soft);
+}
+
+.icon-btn-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--color-surface);
+}
+
+.icon-btn-dot-success {
+  background: var(--color-success);
+}
+
+.icon-btn-dot-primary {
+  background: var(--color-primary);
+}
+
+.icon-popover-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-hover);
+  padding: 18px;
+  z-index: 30;
+}
+
+/* Compact variant of .icon-popover-panel for short action menus (rename/duplicate/delete). The
+   full-width panel is sized for forms; a 3-item menu in it reads as a big empty card. */
+.icon-popover-menu {
+  width: max-content;
+  min-width: 168px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.menu-item svg {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.menu-item:hover {
+  background: var(--color-bg);
+}
+
+.menu-item-danger {
+  color: var(--color-danger);
+}
+
+.menu-item-danger:hover {
+  background: var(--color-danger-soft);
+}
+
+.suggestion-textarea {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  background: var(--color-primary-soft);
+  border-color: transparent;
+}
+
+.suggestion-textarea:focus {
+  background: var(--color-surface);
+}
+
+.menu-separator {
+  height: 1px;
+  margin: 6px 8px;
+  background: var(--color-border);
+}
+
+.split-layout-left .resume-card {
+  flex: 0 0 auto;
+}
+
+.resume-card h2,
+.resume-card .resume-upload-row,
+.resume-card .resume-select-row,
+.resume-card .alert {
+  flex-shrink: 0;
+}
+
+.resume-upload-row {
+  flex-wrap: nowrap;
+}
+
+.resume-filename {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.resume-select-row {
+  margin-top: 10px;
+  flex-wrap: nowrap;
+}
+
+.resume-select-label {
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.resume-active {
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.resume-hint {
+  margin-top: 10px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.jd-textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+}
+
+/* Modal (resume PDF/image preview pop-out) */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(33, 31, 38, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal-panel {
+  width: 380px;
+  height: 480px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card-hover);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.modal-iframe {
+  flex: 1;
+  border: none;
+  width: 100%;
+}
+
 .alert {
   background: var(--color-danger-soft);
   color: var(--color-danger);
@@ -439,4 +967,335 @@ mark.highlight {
   border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
+}
+
+/* Resume builder: library grid */
+
+.resume-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+/* `.card + .card { margin-top: 20px }` is meant for vertically-stacked cards elsewhere -
+   it also matches every card here (each preceded by a sibling `.card`), pushing rows 2+
+   down and breaking grid row alignment. Grid `gap` already provides spacing. */
+.resume-library-grid > .card {
+  margin-top: 0;
+}
+
+.resume-library-new-card {
+  height: 100%;
+  cursor: pointer;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.resume-library-card {
+  height: 100%;
+  position: relative;
+}
+
+.resume-library-thumb {
+  height: 90px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.resume-library-thumb img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.resume-library-card-menu {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+/* Resume builder: 3-pane editor layout */
+
+.builder-layout {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.builder-sections {
+  width: 320px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  min-height: 0;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 8px 16px;
+}
+
+.builder-preview-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  /* Reserve the scrollbar's width whether or not it's currently needed - otherwise a
+     scrollbar appearing/disappearing as the scaled page's height changes shifts
+     clientWidth, which feeds back into the scale calculation in ResumePreview.tsx and
+     never settles. */
+  scrollbar-gutter: stable;
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+}
+
+.builder-style-panel {
+  width: 280px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  min-height: 0;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+
+@media (max-width: 1100px) {
+  .builder-layout {
+    flex-direction: column;
+    flex: none;
+  }
+  .builder-sections,
+  .builder-style-panel {
+    width: 100%;
+  }
+  .builder-preview-pane {
+    overflow-y: visible;
+  }
+}
+
+.builder-section-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.builder-section-item:last-child {
+  border-bottom: none;
+}
+
+.builder-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.builder-reorder-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  border-radius: var(--radius-sm);
+}
+
+.builder-reorder-btn:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.builder-reorder-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Template picker modal */
+
+/* Height is intentionally auto + capped, not fixed like the base .modal-panel (which is fixed
+   because ResumePreviewModal's iframe needs a definite height to fill). These large modals hold
+   step-based content that varies a lot - a fixed height left a short step, like the JD paste box,
+   sitting in a tall panel with dead space under the button. */
+.modal-panel-lg {
+  width: min(720px, 90vw);
+  height: auto;
+  max-height: 85vh;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.template-thumb {
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.template-thumb.active {
+  border-color: var(--color-primary);
+}
+
+.template-thumb-label {
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.template-thumb-preview {
+  height: 110px;
+  background: #fff;
+  padding: 12px;
+}
+
+.template-thumb-preview::before,
+.template-thumb-preview::after {
+  content: "";
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-border);
+  margin-bottom: 8px;
+}
+
+.template-thumb-preview-classic::before {
+  width: 60%;
+}
+
+.template-thumb-preview-classic::after {
+  width: 85%;
+}
+
+.template-thumb-preview-sidebar {
+  display: flex;
+  gap: 8px;
+  padding: 0;
+}
+
+.template-thumb-preview-sidebar::before {
+  content: "";
+  width: 30%;
+  align-self: stretch;
+  background: var(--color-primary-soft);
+  margin: 0;
+}
+
+.template-thumb-preview-sidebar::after {
+  content: "";
+  flex: 1;
+  align-self: center;
+  height: 6px;
+  background: var(--color-border);
+  margin: 0;
+}
+
+.template-thumb-preview-compact::before {
+  width: 40%;
+  height: 4px;
+}
+
+.template-thumb-preview-compact::after {
+  width: 90%;
+  height: 4px;
+}
+
+.template-thumb-preview-timeline {
+  position: relative;
+  padding-left: 24px;
+}
+
+.template-thumb-preview-timeline::before,
+.template-thumb-preview-timeline::after {
+  width: 70%;
+  margin-left: 0;
+}
+
+.template-thumb-preview-timeline::before {
+  border-left: 2px solid var(--color-primary);
+  padding-left: 10px;
+}
+
+.template-thumb-preview-timeline::after {
+  border-left: 2px solid var(--color-primary);
+  padding-left: 10px;
+}
+
+.template-thumb-preview-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.template-thumb-preview-banner::before {
+  content: "";
+  display: block;
+  height: 28px;
+  width: 100%;
+  background: var(--color-primary);
+  margin: 0 0 10px;
+  border-radius: 0;
+}
+
+.template-thumb-preview-banner::after {
+  content: "";
+  display: block;
+  width: 85%;
+  height: 6px;
+  background: var(--color-border);
+  margin: 0 0 0 12px;
+}
+
+/* Resume page (shared by preview + print export) */
+
+/* Holds the visually-scaled page (see ResumePreview.tsx) - height is set inline to the
+   page's true rendered height * scale, so this container never reserves more space than
+   the shrunk page actually occupies, and overflow:hidden trims the sub-pixel remainder
+   of the page's true 794px-wide layout box that peeks past a narrower container. */
+.resume-page-container {
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  /* Flex's default align-items:stretch would force .resume-page's height to match this
+     container's - which is itself computed FROM .resume-page's measured height in
+     ResumePreview.tsx, a circular dependency that collapses the measurement. The page's
+     height must only ever come from its own natural content. */
+  align-items: flex-start;
+}
+
+.resume-page {
+  background: #fff;
+  width: 794px;
+  /* A4 at 96dpi is 794x1123px. The width alone used to be the only A4-accurate dimension, so a
+     short resume rendered as a stub of a page that looked nothing like the exported sheet - the
+     preview now always shows a full A4 page and grows past it only when content genuinely
+     overflows onto a second one. print.css deliberately resets this back to 0 (see the note
+     there): forcing a full-page min-height during printing rounds up and emits a trailing blank
+     page. */
+  min-height: 1123px;
+  flex-shrink: 0;
+  transform-origin: top center;
+  box-shadow: var(--shadow-card-hover);
+  color: var(--resume-text, #211f26);
+  font-family: var(--resume-font-family, var(--font-sans));
+  line-height: var(--resume-line-height, 1.5);
 }

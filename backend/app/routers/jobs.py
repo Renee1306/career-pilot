@@ -5,7 +5,6 @@ from app.models.job import (
     JobAnalysisOut,
     JobDescriptionCreate,
     JobDescriptionOut,
-    ResumeMatchRequest,
     TranslateRequest,
 )
 from app.services import job_service
@@ -53,20 +52,11 @@ def generate_typical_day(job_id: str, user: AuthedUser = Depends(get_current_use
     return _run(job_service.generate_typical_day_analysis, user.client, user.id, job_id)
 
 
-@router.post("/{job_id}/resume-match", response_model=JobAnalysisOut)
-def generate_resume_match(
-    job_id: str, payload: ResumeMatchRequest, user: AuthedUser = Depends(get_current_user)
-):
-    return _run(job_service.generate_resume_match, user.client, user.id, job_id, payload.resume_id)
-
-
 @router.post("/{job_id}/analyze-all", response_model=JobAnalysisOut)
-def generate_full_analysis(
-    job_id: str, payload: ResumeMatchRequest, user: AuthedUser = Depends(get_current_user)
-):
-    """Runs explanation, typical-day, and resume-match concurrently (see
-    app/agents/orchestrator.py) instead of the three separate sequential calls."""
-    return _run(job_service.generate_full_analysis, user.client, user.id, job_id, payload.resume_id)
+def generate_full_analysis(job_id: str, user: AuthedUser = Depends(get_current_user)):
+    """Runs explanation and typical-day concurrently (see app/agents/orchestrator.py) instead of
+    two separate sequential calls. Takes no body - neither analysis depends on a resume."""
+    return _run(job_service.generate_full_analysis, user.client, user.id, job_id)
 
 
 @router.post("/{job_id}/explanation/translate", response_model=JobAnalysisOut)
@@ -74,3 +64,10 @@ def translate_explanation(
     job_id: str, payload: TranslateRequest, user: AuthedUser = Depends(get_current_user)
 ):
     return _run(job_service.translate_explanation, user.client, user.id, job_id, payload.language)
+
+
+@router.post("/{job_id}/typical-day/translate", response_model=JobAnalysisOut)
+def translate_typical_day(
+    job_id: str, payload: TranslateRequest, user: AuthedUser = Depends(get_current_user)
+):
+    return _run(job_service.translate_typical_day, user.client, user.id, job_id, payload.language)

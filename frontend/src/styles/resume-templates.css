@@ -1,0 +1,248 @@
+/* Resume builder template layouts. Read the --resume-* custom properties set inline on
+   .resume-page (see ResumePreview.tsx) so a single style panel drives every template. */
+
+.resume-template {
+  font-size: var(--resume-body-size, 13px);
+}
+
+.resume-template h1 {
+  font-size: calc(var(--resume-name-size, 20px) * 1.3);
+  margin: 0 0 4px;
+}
+
+.resume-template h2 {
+  font-size: var(--resume-heading-size, 20px);
+  color: var(--resume-accent, #ff6b3d);
+  margin: 0 0 8px;
+  border-bottom: 2px solid var(--resume-accent, #ff6b3d);
+  padding-bottom: 4px;
+}
+
+.resume-section {
+  margin-bottom: 18px;
+  break-inside: avoid;
+}
+
+.resume-entry {
+  margin-bottom: 12px;
+  break-inside: avoid;
+}
+
+.resume-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.resume-entry-dates {
+  color: #8b8a92;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.resume-entry-subtitle {
+  color: #8b8a92;
+  font-size: 0.9em;
+  margin-bottom: 2px;
+}
+
+.resume-entry-compact {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.resume-contact-line {
+  color: #8b8a92;
+  font-size: 0.95em;
+}
+
+.resume-skill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.resume-skill-pill {
+  background: var(--resume-accent, #ff6b3d);
+  opacity: 0.85;
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.85em;
+}
+
+.resume-photo {
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* Classic: single column, header row with photo + name/contact */
+
+.resume-template-classic {
+  padding: var(--resume-padding-top, 40px) var(--resume-padding-right, 40px) var(--resume-padding-bottom, 40px)
+    var(--resume-padding-left, 40px);
+}
+
+.resume-template-classic .resume-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+/* Sidebar: two-column, colored left rail */
+
+.resume-template-sidebar {
+  display: flex;
+  min-height: 1123px;
+}
+
+.resume-template-sidebar .resume-sidebar {
+  width: 34%;
+  flex-shrink: 0;
+  background: var(--resume-accent, #ff6b3d);
+  color: #fff;
+  padding: var(--resume-padding-top, 40px) calc(var(--resume-padding-right, 40px) * 0.6)
+    var(--resume-padding-bottom, 40px) calc(var(--resume-padding-left, 40px) * 0.6);
+}
+
+.resume-template-sidebar .resume-sidebar h1 {
+  font-size: calc(var(--resume-name-size, 20px) * 1.1);
+}
+
+.resume-template-sidebar .resume-sidebar .resume-contact-line {
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 18px;
+}
+
+.resume-template-sidebar .resume-sidebar h2 {
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, 0.5);
+}
+
+.resume-template-sidebar .resume-sidebar .resume-entry-dates {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.resume-template-sidebar .resume-sidebar .resume-skill-pill {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.resume-template-sidebar .resume-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--resume-padding-top, 40px) var(--resume-padding-right, 40px) var(--resume-padding-bottom, 40px)
+    var(--resume-padding-left, 40px);
+}
+
+/* Compact: single column, tighter spacing, no underline on headings */
+
+.resume-template-compact {
+  padding: calc(var(--resume-padding-top, 40px) * 0.75) calc(var(--resume-padding-right, 40px) * 0.75)
+    calc(var(--resume-padding-bottom, 40px) * 0.75) calc(var(--resume-padding-left, 40px) * 0.75);
+  min-height: 1123px;
+}
+
+.resume-template-compact .resume-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.resume-template-compact h2 {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: calc(var(--resume-heading-size, 20px) * 0.85);
+}
+
+.resume-template-compact .resume-section {
+  margin-bottom: 12px;
+}
+
+.resume-template-compact .resume-entry {
+  margin-bottom: 8px;
+}
+
+/* Timeline: single column, entries get a left rail dot + connecting line */
+
+.resume-template-timeline {
+  padding: var(--resume-padding-top, 40px) var(--resume-padding-right, 40px) var(--resume-padding-bottom, 40px)
+    var(--resume-padding-left, 40px);
+  min-height: 1123px;
+}
+
+.resume-template-timeline .resume-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.resume-timeline-rail .resume-entry {
+  position: relative;
+  padding-left: 20px;
+  border-left: 2px solid var(--resume-accent, #ff6b3d);
+  margin-left: 4px;
+}
+
+.resume-timeline-rail .resume-entry::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--resume-accent, #ff6b3d);
+}
+
+.resume-timeline-rail .resume-entry-compact {
+  padding-left: 20px;
+  margin-left: 4px;
+  border-left: 2px solid var(--resume-accent, #ff6b3d);
+}
+
+/* Banner: colored header band, two-column body below (main + narrow rail) */
+
+.resume-template-banner {
+  min-height: 1123px;
+}
+
+.resume-banner-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--resume-accent, #ff6b3d);
+  color: #fff;
+  padding: var(--resume-padding-top, 40px) var(--resume-padding-right, 40px) var(--resume-padding-bottom, 40px)
+    var(--resume-padding-left, 40px);
+}
+
+.resume-banner-header .resume-contact-line {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.resume-banner-body {
+  display: flex;
+}
+
+.resume-banner-body .resume-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--resume-padding-top, 40px) var(--resume-padding-right, 40px) var(--resume-padding-bottom, 40px)
+    var(--resume-padding-left, 40px);
+}
+
+.resume-banner-body .resume-rail {
+  width: 30%;
+  flex-shrink: 0;
+  background: var(--color-bg);
+  padding: var(--resume-padding-top, 40px) calc(var(--resume-padding-right, 40px) * 0.6)
+    var(--resume-padding-bottom, 40px) calc(var(--resume-padding-left, 40px) * 0.6);
+}

@@ -49,6 +49,3 @@ class ResumeOut(BaseModel):
     created_at: datetime
 
 
-class ResumeExportRequest(BaseModel):
-    text: str
-    filename: str | None = None

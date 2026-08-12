@@ -1,14 +1,19 @@
+from typing import TypeVar
+
+from pydantic import BaseModel
+
 from app.agents._llm import get_llm
-from app.models.job import JobExplanation
 
 PROMPT = (
-    "Translate every text field in the following job explanation into {language}. "
+    "Translate every text field in the following JSON object into {language}. "
     "Keep the same structure and meaning, just in {language}.\n\n{content_json}"
 )
 
+T = TypeVar("T", bound=BaseModel)
 
-def translate_job_explanation(explanation: JobExplanation, language: str) -> JobExplanation:
-    structured_llm = get_llm().with_structured_output(JobExplanation)
+
+def translate_structured(model: T, language: str) -> T:
+    structured_llm = get_llm().with_structured_output(type(model))
     return structured_llm.invoke(
-        PROMPT.format(language=language, content_json=explanation.model_dump_json(indent=2))
+        PROMPT.format(language=language, content_json=model.model_dump_json(indent=2))
     )
