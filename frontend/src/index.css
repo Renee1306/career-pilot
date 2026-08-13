@@ -1,28 +1,67 @@
+/* ---------------------------------------------------------------------------
+   CareerPilot design tokens.
+
+   Visual language: warm cream page, white rounded cards, one deep espresso
+   "ink" surface for high-contrast panels, and a vivid orange primary with an
+   amber accent used the way a highlighter is used - sparingly, on dark.
+   Everything below is a token; components.css never hardcodes a colour.
+   --------------------------------------------------------------------------- */
+
 :root {
-  --color-bg: #f7f3ec;
+  /* Surfaces */
+  --color-bg: #f6f1e9;
+  --color-bg-alt: #efe7db;
   --color-surface: #ffffff;
-  --color-primary: #ff6b3d;
-  --color-primary-hover: #f0562a;
-  --color-primary-soft: #ffe6da;
-  --color-text: #211f26;
-  --color-text-muted: #8b8a92;
-  --color-border: #ede8de;
+  --color-surface-sunken: #faf6f0;
+
+  /* The dark panel (hero band, marquee, footer, CTA). */
+  --color-ink: #2a1608;
+  --color-ink-soft: #3b2413;
+  --color-ink-text: #fdf6ee;
+  --color-ink-muted: #c8b09a;
+
+  /* Brand */
+  --color-primary: #f2681c;
+  --color-primary-hover: #d9560f;
+  --color-primary-soft: #ffe7d6;
+  --color-primary-tint: #fff3ea;
+  --color-accent: #ffb020;
+  --color-accent-soft: #fff0cd;
+
+  /* Text */
+  --color-text: #1d1208;
+  --color-text-muted: #8a7967;
+  --color-border: #ebe2d5;
+  --color-border-strong: #ddd0bd;
+
+  /* Status */
   --color-success: #2f9e5c;
   --color-success-soft: #e3f6ea;
-  --color-danger: #e0503a;
+  --color-danger: #d9432c;
   --color-danger-soft: #fbe6e1;
-  --color-warning: #d99a1f;
+  --color-warning: #c98407;
   --color-warning-soft: #fbeecf;
+  --color-info: #2f6fd0;
+  --color-info-soft: #e4eefb;
 
+  /* Radii */
+  --radius-xl: 28px;
   --radius-lg: 20px;
   --radius-md: 14px;
   --radius-sm: 10px;
   --radius-pill: 999px;
 
-  --shadow-card: 0 4px 24px rgba(33, 31, 38, 0.06);
-  --shadow-card-hover: 0 8px 28px rgba(33, 31, 38, 0.1);
+  /* Elevation */
+  --shadow-card: 0 2px 12px rgba(42, 22, 8, 0.05);
+  --shadow-card-hover: 0 12px 32px rgba(42, 22, 8, 0.12);
+  --shadow-lift: 0 20px 48px rgba(42, 22, 8, 0.16);
 
+  /* Type */
   --font-sans: "Plus Jakarta Sans", "Inter", system-ui, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque", "Plus Jakarta Sans", system-ui, sans-serif;
+
+  /* Layout */
+  --page-max: 1240px;
 
   font-family: var(--font-sans);
   color: var(--color-text);
@@ -38,28 +77,36 @@
   box-sizing: border-box;
 }
 
+html {
+  /* For the landing page's in-page nav anchors. Neutralised under
+     prefers-reduced-motion at the bottom of this file. */
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  background: var(--color-bg);
 }
 
 h1,
 h2,
 h3,
 h4 {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-weight: 700;
   color: var(--color-text);
   margin: 0 0 0.5em;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 h1 {
-  font-size: 28px;
-  letter-spacing: -0.3px;
+  font-size: 30px;
 }
 
 h2 {
-  font-size: 18px;
+  font-size: 19px;
 }
 
 h3 {
@@ -68,7 +115,7 @@ h3 {
 
 p {
   margin: 0 0 0.5em;
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 a {
@@ -92,4 +139,27 @@ select,
 textarea {
   font-family: var(--font-sans);
   font-size: 14px;
+}
+
+::selection {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* Focus ring: one consistent, visible ring everywhere instead of the UA default,
+   which disappears against the cream background on several controls. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

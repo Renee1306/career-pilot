@@ -47,6 +47,19 @@
   margin-bottom: 2px;
 }
 
+.resume-bullet-list {
+  margin: 4px 0 0;
+  padding-left: 1.1em;
+}
+
+.resume-bullet-list li {
+  margin-bottom: 3px;
+}
+
+.resume-bullet-list li:last-child {
+  margin-bottom: 0;
+}
+
 .resume-entry-compact {
   display: flex;
   justify-content: space-between;

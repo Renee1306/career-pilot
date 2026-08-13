@@ -126,7 +126,10 @@ export default function Applications() {
   return (
     <div>
       <div className="page-header">
-        <h1>Applications</h1>
+        <div>
+          <h1>Applications</h1>
+          <p className="muted">Drag a card between columns to update where it stands.</p>
+        </div>
         <div className="applications-actions">
           <GmailSync onApplicationsChanged={loadAll} />
           <IconPopover icon={<IconPlus />} title="Track a new application">
@@ -201,8 +204,11 @@ export default function Applications() {
               onDrop={handleDrop(col.status)}
             >
               <div className="board-column-title">
-                {col.label} ({colApps.length})
+                <span className={`board-column-dot board-column-dot-${col.status}`} />
+                {col.label}
+                <span className="board-column-count">{colApps.length}</span>
               </div>
+              {colApps.length === 0 && <div className="board-empty">Drop a card here</div>}
               {colApps.map((app) => {
                 const job = jobById(app.job_description_id);
                 const position = cardPosition(app, job);

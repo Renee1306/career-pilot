@@ -1,0 +1,3 @@
+# Netlify SPA fallback: every path is served by index.html so client-side routes
+# like /dashboard or /applications/:id survive a hard refresh.
+/*  /index.html  200

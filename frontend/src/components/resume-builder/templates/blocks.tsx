@@ -1,5 +1,31 @@
 import { getEffectiveSectionOrder, type ResumeContent } from "../../../lib/api";
 
+// Strips a leading bullet marker a source resume (or a pasted description) may already carry -
+// the app supplies its own via list-style, so leaving the original in would double it up.
+const BULLET_PREFIX = /^[•●▪◦‣∙*-]\s+/;
+
+/** Renders a description as a bulleted list when it has more than one line, or as a plain
+ *  paragraph when it's a single line/sentence. A bare `<p>` collapses embedded newlines (HTML's
+ *  default whitespace handling), which is what made an imported multi-bullet description render
+ *  as one run-together, wrapped paragraph regardless of how the extractor formatted it - splitting
+ *  on lines and rendering real `<li>` elements is what actually fixes that, not a CSS tweak alone. */
+function DescriptionText({ text }: { text: string }) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(BULLET_PREFIX, ""))
+    .filter(Boolean);
+
+  if (lines.length === 0) return null;
+  if (lines.length === 1) return <p>{lines[0]}</p>;
+  return (
+    <ul className="resume-bullet-list">
+      {lines.map((line, i) => (
+        <li key={i}>{line}</li>
+      ))}
+    </ul>
+  );
+}
+
 export function SummaryBlock({ text }: { text: string }) {
   if (!text.trim()) return null;
   return (
@@ -26,7 +52,7 @@ export function ExperienceBlock({ entries }: { entries: ResumeContent["work_expe
               {[entry.start_date, entry.end_date].filter(Boolean).join(" – ")}
             </span>
           </div>
-          {entry.description && <p>{entry.description}</p>}
+          <DescriptionText text={entry.description} />
         </div>
       ))}
     </section>
@@ -50,7 +76,7 @@ export function EducationBlock({ entries }: { entries: ResumeContent["education"
             </span>
           </div>
           {entry.degree && <div className="resume-entry-subtitle">{entry.degree}</div>}
-          {entry.description && <p>{entry.description}</p>}
+          <DescriptionText text={entry.description} />
         </div>
       ))}
     </section>
@@ -69,7 +95,7 @@ export function ProjectsBlock({ entries }: { entries: ResumeContent["projects"] 
             <span className="resume-entry-dates">{entry.period}</span>
           </div>
           {entry.website && <div className="resume-entry-subtitle">{entry.website}</div>}
-          {entry.description && <p>{entry.description}</p>}
+          <DescriptionText text={entry.description} />
         </div>
       ))}
     </section>
@@ -122,7 +148,7 @@ export function AwardsBlock({ entries }: { entries: ResumeContent["awards"] }) {
             </strong>
             <span className="resume-entry-dates">{entry.date}</span>
           </div>
-          {entry.description && <p>{entry.description}</p>}
+          <DescriptionText text={entry.description} />
         </div>
       ))}
     </section>
@@ -162,7 +188,7 @@ export function VolunteerBlock({ entries }: { entries: ResumeContent["volunteer"
               {[entry.start_date, entry.end_date].filter(Boolean).join(" – ")}
             </span>
           </div>
-          {entry.description && <p>{entry.description}</p>}
+          <DescriptionText text={entry.description} />
         </div>
       ))}
     </section>
@@ -183,7 +209,7 @@ export function ReferencesBlock({ entries }: { entries: ResumeContent["reference
             </strong>
             <span className="resume-entry-dates">{entry.contact}</span>
           </div>
-          {entry.description && <p>{entry.description}</p>}
+          <DescriptionText text={entry.description} />
         </div>
       ))}
     </section>
@@ -195,7 +221,7 @@ export function CustomSectionBlock({ title, content }: { title: string; content:
   return (
     <section className="resume-section">
       <h2>{title || "Custom Section"}</h2>
-      <p>{content}</p>
+      <DescriptionText text={content} />
     </section>
   );
 }

@@ -77,6 +77,7 @@ career-pilot/
     │   │   └── ChatContext.tsx      ChatScopeProvider — {jobId?, resumeId?} the floating chatbot grounds itself in
     │   ├── components/
     │   │   ├── Topbar.tsx, ProtectedRoute.tsx
+    │   │   ├── Icons.tsx             all inline SVG icons (no icon package dependency)
     │   │   ├── JobExplanationTab.tsx, TypicalDayTab.tsx   (the only 2 analysis tabs — Resume
     │   │   │                          Match was deleted, see "Resume-match (removed entirely)")
     │   │   ├── LanguageSelect.tsx    searchable language combobox used by JobExplanationTab's translate control
@@ -94,8 +95,12 @@ career-pilot/
     │   │       │                      TemplatePickerModal) — see "Resume Builder" below
     │   │       └── templates/        ClassicTemplate.tsx, SidebarTemplate.tsx, blocks.tsx (shared)
     │   ├── pages/
-    │   │   ├── Login.tsx
-    │   │   ├── JobUnderstanding.tsx  upload resume + paste JD, hosts the 3 tabs
+    │   │   ├── Landing.tsx           public marketing page (/) - hero, marquee, features,
+    │   │   │                          workflow, tracker showcase, quotes, CTA, footer
+    │   │   ├── Dashboard.tsx         signed-in home (/dashboard) - stat tiles, pipeline funnel,
+    │   │   │                          recent activity, upcoming interviews, quick actions
+    │   │   ├── Login.tsx             split auth screen (form + ink side panel)
+    │   │   ├── JobUnderstanding.tsx  paste JD (/job-analysis), hosts the 2 analysis tabs
     │   │   ├── Applications.tsx      Kanban board, icon-popover actions in the page header
     │   │   ├── ApplicationDetail.tsx  editable company/position header, typed timeline, Company Snapshot
     │   │   ├── ResumeLibrary.tsx     Resume Builder document list (/resume-builder)
@@ -103,12 +108,15 @@ career-pilot/
     │   ├── lib/
     │   │   ├── supabaseClient.ts
     │   │   ├── languages.ts          static list of languages for LanguageSelect
+    │   │   ├── useReveal.ts          landing-page scroll reveal (progressive enhancement)
     │   │   └── api.ts                ALL backend calls + all shared TS types live here
     │   ├── index.css                 design tokens (CSS custom properties) + base reset
     │   └── styles/
     │       ├── components.css        the design system: .card, .btn*, .input, .tabs, .badge*, .board*, .topbar*, .builder-*, etc.
     │       ├── resume-templates.css  Resume Builder template layouts (reads --resume-* custom properties)
     │       └── print.css             scopes window.print() to #resume-print-root, see "Resume Builder"
+    ├── vercel.json                   SPA rewrite (every path -> index.html) + build config
+    ├── public/_redirects             same fallback for Netlify
     └── .env.example                  VITE_SUPABASE_URL/ANON_KEY (safe), VITE_API_BASE_URL
 ```
 
@@ -371,24 +379,47 @@ controls on the left.
 
 ## Frontend design system
 
-Modeled on a reference dashboard screenshot (`reference.png` at repo root — a course-platform
-UI called "Focotech"): warm cream background (`--color-bg: #f7f3ec`), coral/orange primary
-accent (`--color-primary: #ff6b3d`), white rounded cards (`--radius-lg: 20px`), pill-shaped nav
-items and buttons, soft shadows. Font is Google Fonts "Plus Jakarta Sans" (loaded via `<link>`
-in `index.html`, not self-hosted).
+Rebuilt in the "orange" pass (see phase 15) against a fintech landing-page reference the user
+supplied: warm cream page, white rounded cards, one deep-espresso "ink" surface used for
+high-contrast bands (hero visual, marquee, CTA, dashboard header, auth side panel), a vivid
+orange primary and an amber accent used sparingly the way a highlighter is. Two type faces,
+both from Google Fonts via `<link>` in `index.html`: **Bricolage Grotesque** for display
+(headings, stat numbers, the landing hero) and **Plus Jakarta Sans** for body. Everything after
+those two in the font URL is there only for the resume builder's font picker.
 
-Everything lives in two files:
-- `src/index.css` — CSS custom properties (colors, radii, shadows) + base element resets
-- `src/styles/components.css` — the actual reusable classes: `.card`, `.btn`/`.btn-primary`/
-  `.btn-secondary`/`.btn-ghost`, `.input`, `.field`, `.tabs`/`.tab-button`, `.badge` +
-  color variants, `.board`/`.board-column`/`.board-card` (Kanban), `.progress-track`/
-  `.progress-fill` (time-allocation bars), `.subcard` + `.tier-hard`/`.tier-learnable`/
-  `.tier-bonus` (colored left-border boxes for requirement tiers), `.highlight` (the yellow
-  `<mark>` for resume-match edits), `.topbar*` (top nav), `.lang-select*` (language combobox),
-  `.chat-fab`/`.chat-panel`/`.chat-message-*` (chatbot),
-  `.icon-btn`/`.icon-popover*` (generic icon-button-that-opens-a-panel pattern — Gmail sync and
-  "track a new application" on the Applications page, see `IconPopover.tsx` below),
-  `.menu-item`/`.menu-item-danger`/`.menu-separator` (compact action menus).
+Everything lives in two files, and **no rule hardcodes a brand colour** — the only literal colours
+left are translucent overlays derived from those same values (the modal scrim, the radial glows,
+hairlines on ink panels), which need an alpha channel a bare token can't carry:
+- `src/index.css` — the tokens (surfaces, ink, brand, text, status, radii, elevation, type,
+  `--page-max`) + base element resets, a global focus ring, and a `prefers-reduced-motion` block
+  that neutralises every animation/transition/`scroll-behavior` in the app at once.
+- `src/styles/components.css` — the reusable classes, grouped into 21 numbered sections. Two
+  shells live here and are deliberately different: `.marketing` (public landing + auth — full-bleed
+  alternating cream/ink bands, oversized display type, normal page scrolling) and `.app-shell`
+  (the signed-in product — viewport-locked, only innermost regions scroll; see "Full-height
+  layout" below). Beyond the pre-existing vocabulary (`.card`, `.btn*`, `.input`, `.field`,
+  `.tabs`/`.tab-button`, `.badge*`, `.board*`, `.progress-*`, `.subcard` + `.tier-*`,
+  `.topbar*`, `.lang-select*`, `.chat-*`, `.icon-btn`/`.icon-popover*`, `.menu-item*`,
+  `.builder-*`, `.template-thumb*`, `.resume-page*`), it now also carries `.marketing-nav*`,
+  `.hero*`, `.marquee*`, `.section*`/`.showcase`/`.step-*`/`.stat-strip*`, `.feature-card*`,
+  `.mock-window*`, `.quote-*`, `.cta-band`, `.site-footer*`, `.auth-*`, and the dashboard's
+  `.dash-hero`/`.stat-tile*`/`.funnel*`/`.quick-action*`/`.list-row*`.
+
+Class names from before the redesign were all **kept** rather than renamed, so the restyle
+touched no page component that wasn't otherwise changing.
+
+New shared pieces:
+- `src/components/Icons.tsx` — every inline SVG icon used by the nav, landing page and dashboard,
+  in one place. Still no icon package (same "no new frontend dependency" precedent as elsewhere);
+  each icon inherits `currentColor` and takes a `size` prop.
+- `src/lib/useReveal.ts` — the landing page's scroll-reveal, written as a **progressive
+  enhancement on purpose**. `.reveal` on its own is fully visible; the hidden start state lives on
+  `.reveal-ready`, which the hook adds itself only once it has an observer running, and a 1.2s
+  failsafe timer reveals anything the observer hasn't reached. The first version put `opacity: 0`
+  directly on `.reveal` and it rendered a **completely blank page** in any context where
+  IntersectionObserver never fires (a backgrounded or non-compositing tab does exactly that — this
+  was caught in the browser during the redesign, not in theory). If this is ever refactored, keep
+  the invariant: no-JS/no-observer must still show content.
 
 `IconPopover` takes a `variant` prop: `"panel"` (default, the wide form-shaped popover) or
 `"menu"`, which adds `.icon-popover-menu` — `width: max-content`, small padding, meant for short
@@ -400,12 +431,35 @@ There is no component library (no MUI/Chakra/etc.) — just these class names ap
 JSX, occasionally mixed with inline `style={}` for one-off layout tweaks. Keep using this
 pattern rather than introducing a UI library, unless the user asks for one.
 
-Layout: `App.tsx`'s `AppLayout` renders `<Topbar/>` + `<main className="main-content">` +
-`<Chatbot/>` only when a session exists; otherwise it renders children directly (so `Login` isn't
-wrapped in the authenticated chrome). Both pages are full-viewport-width — there's no sidebar
-eating horizontal space, which is what lets `JobUnderstanding.tsx`'s two-column layout size
-itself against the actual viewport (see "Scrollable split layout" below). `Topbar.tsx` has inline
-SVG icons (no icon package dependency), same pattern the old `Sidebar.tsx` used.
+### Routing + layout
+
+`App.tsx` is a **layout route**, not a session-conditional wrapper: `AppChrome` (`<ProtectedRoute>`
+wrapping `.app-shell` + `<Topbar/>` + `<main>` with an `<Outlet/>` + `<Chatbot/>`) is the parent
+route for every product page, so the nav and chatbot mount **once** and survive navigation between
+them. `/` (Landing) and `/login` sit outside it and render their own chrome.
+
+| Route | Page | Auth |
+| --- | --- | --- |
+| `/` | `Landing.tsx` | public |
+| `/login` | `Login.tsx` (`?mode=sign_up` opens the sign-up variant) | public |
+| `/dashboard` | `Dashboard.tsx` | protected |
+| `/job-analysis` | `JobUnderstanding.tsx` — **moved off `/`** in phase 15 | protected |
+| `/applications`, `/applications/:id` | `Applications.tsx`, `ApplicationDetail.tsx` | protected |
+| `/resume-builder`, `/resume-builder/:documentId` | `ResumeLibrary.tsx`, `ResumeEditor.tsx` | protected |
+| `*` | redirect to `/` | — |
+
+The public pages load eagerly; **every protected page is `React.lazy`-loaded** behind a `<Suspense>`
+inside `AppChrome`, so a cold visitor to the landing page doesn't download the resume-builder
+editor (by far the heaviest route). This cut the entry bundle from ~580kB to ~487kB (158→140kB
+gzipped) with the editor split into its own 51kB chunk.
+
+`ProtectedRoute` redirects to `/login` with `state.from` set to the path that was attempted, and
+`Login` honours it — so a deep link (an emailed `/applications/:id`, say) survives the sign-in
+detour instead of dumping the user on the dashboard.
+
+Product pages are full-viewport-width — there's no sidebar eating horizontal space, which is what
+lets `JobUnderstanding.tsx`'s two-column layout size itself against the actual viewport (see
+"Scrollable split layout" below).
 
 ### Full-height layout, no page scroll (`.page-fill` / `.split-layout` in components.css)
 
@@ -538,6 +592,18 @@ request body anymore.
     `navigate()`-doesn't-unmount gotcha under "Resume Builder"); `chat_assistant`/`resume_enhancer`/
     `resume_customizer` moved off Gemini onto NVIDIA Nemotron 3 Ultra via OpenRouter, which needed
     a substantially blunter anti-fabrication prompt (see "OpenRouter / Nemotron")
+15. **Landing page, dashboard and full visual redesign** ("orange" pass). A public marketing page
+    at `/` modelled on a fintech landing-page reference the user supplied — hero with layered
+    product cards (pure CSS/SVG, no images), an infinite marquee strip, feature grid, workflow
+    steps on an ink band, tracker showcase, quotes, CTA band, footer — with a **Sign in** button in
+    its nav. A new `/dashboard` as the signed-in home: stat tiles (applications / in interview /
+    offers / resumes), a pipeline funnel, recent activity, upcoming interviews pulled out of
+    timeline entries, and quick actions. Job Analysis moved from `/` to `/job-analysis`; routing
+    rebuilt as a layout route with lazy-loaded protected pages (see "Routing + layout"). Design
+    tokens and `components.css` rewritten to the orange/cream/ink palette with a new display face,
+    keeping every existing class name. Login rebuilt as a split screen. Deploy prep: SPA rewrite
+    configs for Vercel/Netlify, real page title + description/OG meta, a new favicon, and
+    `VITE_DEV_AUTO_LOGIN` flipped to `false`.
 12. Applications overhaul: Gmail sync rewritten to search-filter before classifying and to write
     directly into a new typed/editable timeline table instead of the old flat notes array; company
     name + position surfaced and editable on every application (previously only derivable from a
@@ -938,15 +1004,27 @@ If you add a new agent or endpoint, follow the same pattern: real API call first
 model names, prompt/schema mismatches, quota issues) before wiring it into routes; real browser
 click-through before calling a feature done.
 
-## Dev-only auto-login (remove before shipping)
+## Dev-only auto-login (currently OFF)
 
-`frontend/.env` has `VITE_DEV_AUTO_LOGIN=true` plus `VITE_DEV_EMAIL`/`VITE_DEV_PASSWORD` pointing
+`frontend/.env` has `VITE_DEV_AUTO_LOGIN` plus `VITE_DEV_EMAIL`/`VITE_DEV_PASSWORD` pointing
 at a persistent Supabase user (`dev@careerpilot.local`, created via the admin API, not a
 throwaway test user). `AuthContext.tsx` checks this flag when `getSession()` comes back empty
 and silently signs in as that account instead of showing the Login page — real Supabase
-Auth/RLS still runs underneath, only the manual login step is skipped. Set the flag to `false`
-(or delete those three lines from `.env`) before shipping or demoing real auth; `.env.example`
-already defaults it to `false`.
+Auth/RLS still runs underneath, only the manual login step is skipped.
+
+**It is set to `false` as of phase 15** (deploy prep), so the app now shows the real landing page
+and sign-in screen. Flip it back to `true` locally if you want the old skip-the-login dev loop;
+never ship it as `true`. `.env.example` already defaults it to `false`.
+
+## Deploying the frontend
+
+`npm run build` emits a static `dist/`. Because the app uses client-side routing, the host must
+serve `index.html` for every path or a hard refresh on `/dashboard` 404s — `frontend/vercel.json`
+(rewrites) and `frontend/public/_redirects` (Netlify) both do this, so either host works with no
+extra setup. The three `VITE_*` env vars must be set in the host's dashboard, with
+`VITE_API_BASE_URL` pointing at the deployed FastAPI backend rather than `localhost:8000`; the
+backend's CORS origins and the Google OAuth redirect URI (`/gmail/callback`) need the deployed
+origins too.
 
 ## How to run locally
 

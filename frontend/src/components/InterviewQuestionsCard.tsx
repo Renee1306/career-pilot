@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   generateInterviewQuestions,
+  listJobDescriptions,
   type ApplicationOut,
   type InterviewRoundType,
   type JobDescriptionOut,
@@ -10,6 +11,18 @@ const ROUND_LABELS: Record<InterviewRoundType, string> = {
   hr: "HR / recruiter screen",
   technical: "Technical round",
 };
+
+/** Job Analysis only ever saves `raw_text` - `title`/`company` are almost always null in
+ *  practice, so a dropdown built on those alone reads as a wall of "Untitled role". Fall back to
+ *  a snippet of the pasted text plus the save date, which is always distinguishing. */
+function jobOptionLabel(job: JobDescriptionOut): string {
+  const date = new Date(job.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (job.title) {
+    return job.company ? `${job.company} — ${job.title}` : job.title;
+  }
+  const snippet = job.raw_text.trim().replace(/\s+/g, " ").slice(0, 60);
+  return `${date} — ${snippet}${job.raw_text.length > 60 ? "..." : ""}`;
+}
 
 export default function InterviewQuestionsCard({
   application,
@@ -22,16 +35,32 @@ export default function InterviewQuestionsCard({
 }) {
   // Prefilled from the application's linked JD when it has one, so an application created from
   // the Job Analysis page needs no pasting at all; Gmail-created ones (which never get a linked
-  // job_description_id) start empty and the user pastes.
+  // job_description_id) start empty - the user either picks one they analyzed earlier or pastes.
   const [jdText, setJdText] = useState(job?.raw_text ?? "");
+  const [savedJobs, setSavedJobs] = useState<JobDescriptionOut[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState(job?.id ?? "");
   const [round, setRound] = useState<InterviewRoundType>("hr");
   const [loading, setLoading] = useState<InterviewRoundType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    listJobDescriptions()
+      .then(setSavedJobs)
+      .catch(() => {});
+  }, []);
+
   const generated = application.interview_questions ?? null;
   const current = generated?.[round];
+  const canGenerate = jdText.trim().length > 0;
+
+  const handlePickSaved = (jobId: string) => {
+    setSelectedJobId(jobId);
+    const picked = savedJobs.find((j) => j.id === jobId);
+    if (picked) setJdText(picked.raw_text);
+  };
 
   const handleGenerate = async (roundType: InterviewRoundType) => {
+    if (!canGenerate) return;
     setLoading(roundType);
     setError(null);
     setRound(roundType);
@@ -46,26 +75,44 @@ export default function InterviewQuestionsCard({
 
   return (
     <div>
+      {savedJobs.length > 0 && (
+        <div className="field">
+          <label htmlFor="interview-saved-jd">Use a job description from Job Analysis</label>
+          <select
+            id="interview-saved-jd"
+            className="input"
+            value={selectedJobId}
+            onChange={(e) => handlePickSaved(e.target.value)}
+          >
+            <option value="">Choose one...</option>
+            {savedJobs.map((saved) => (
+              <option key={saved.id} value={saved.id}>
+                {jobOptionLabel(saved)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="field">
-        <label htmlFor="interview-jd">Job description</label>
+        <label htmlFor="interview-jd">
+          {savedJobs.length > 0 ? "Or paste a job description" : "Job description"}
+        </label>
         <textarea
           id="interview-jd"
           className="input"
           rows={6}
           value={jdText}
-          onChange={(e) => setJdText(e.target.value)}
-          placeholder={
-            job
-              ? "Using this application's saved job description — edit if you like."
-              : "Paste the job description to ground the questions in the real role..."
-          }
+          onChange={(e) => {
+            setJdText(e.target.value);
+            setSelectedJobId("");
+          }}
+          placeholder="Paste the job description to ground the questions in the real role..."
         />
         <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
-          {job
-            ? "Prefilled from this application's saved job description."
-            : application.company
-              ? `No saved job description — without one, questions are based only on ${application.company}${application.position ? ` / ${application.position}` : ""}.`
-              : "No saved job description for this application."}
+          {canGenerate
+            ? "Questions and suggested answers will be grounded in this job description."
+            : "Pick a saved job description or paste one — generating is disabled until there's a job description to ground it in."}
         </p>
       </div>
 
@@ -74,7 +121,8 @@ export default function InterviewQuestionsCard({
           type="button"
           className="btn btn-primary btn-sm"
           onClick={() => handleGenerate("hr")}
-          disabled={loading !== null}
+          disabled={loading !== null || !canGenerate}
+          title={canGenerate ? undefined : "Add a job description first"}
         >
           {loading === "hr" ? "Generating..." : generated?.hr ? "Regenerate HR questions" : "Generate HR questions"}
         </button>
@@ -82,7 +130,8 @@ export default function InterviewQuestionsCard({
           type="button"
           className="btn btn-secondary btn-sm"
           onClick={() => handleGenerate("technical")}
-          disabled={loading !== null}
+          disabled={loading !== null || !canGenerate}
+          title={canGenerate ? undefined : "Add a job description first"}
         >
           {loading === "technical"
             ? "Generating..."

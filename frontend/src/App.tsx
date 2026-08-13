@@ -1,78 +1,60 @@
-import { Route, Routes } from "react-router-dom";
+import { Suspense, lazy } from "react";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import Chatbot from "./components/Chatbot";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Topbar from "./components/Topbar";
-import { useAuth } from "./context/AuthContext";
 import { ChatScopeProvider } from "./context/ChatContext";
-import ApplicationDetail from "./pages/ApplicationDetail";
-import Applications from "./pages/Applications";
-import JobUnderstanding from "./pages/JobUnderstanding";
+import Landing from "./pages/Landing";
 import Login from "./pages/Login";
-import ResumeEditor from "./pages/ResumeEditor";
-import ResumeLibrary from "./pages/ResumeLibrary";
 import "./App.css";
 
-function AppLayout({ children }: { children: React.ReactNode }) {
-  const { session } = useAuth();
-  if (!session) return <>{children}</>;
+/* The public pages load eagerly - they're the first paint for a cold visitor. Everything
+   behind auth is code-split, so the landing page doesn't ship the resume-builder editor
+   (by far the heaviest route) to someone who has not signed in yet. */
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const JobUnderstanding = lazy(() => import("./pages/JobUnderstanding"));
+const Applications = lazy(() => import("./pages/Applications"));
+const ApplicationDetail = lazy(() => import("./pages/ApplicationDetail"));
+const ResumeLibrary = lazy(() => import("./pages/ResumeLibrary"));
+const ResumeEditor = lazy(() => import("./pages/ResumeEditor"));
 
+/** The signed-in product shell. A layout route rather than a per-page wrapper, so the
+ *  top nav and the chatbot mount once and survive navigation between product pages -
+ *  the public Landing/Login routes sit outside it and render their own chrome. */
+function AppChrome() {
   return (
-    <div className="app-shell">
-      <Topbar />
-      <main className="main-content">{children}</main>
-      <Chatbot />
-    </div>
+    <ProtectedRoute>
+      <div className="app-shell">
+        <Topbar />
+        <main className="main-content">
+          <Suspense fallback={<div className="spinner spinner-page" role="status" aria-label="Loading" />}>
+            <Outlet />
+          </Suspense>
+        </main>
+        <Chatbot />
+      </div>
+    </ProtectedRoute>
   );
 }
 
 function App() {
   return (
     <ChatScopeProvider>
-      <AppLayout>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <JobUnderstanding />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/applications"
-            element={
-              <ProtectedRoute>
-                <Applications />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/applications/:applicationId"
-            element={
-              <ProtectedRoute>
-                <ApplicationDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/resume-builder"
-            element={
-              <ProtectedRoute>
-                <ResumeLibrary />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/resume-builder/:documentId"
-            element={
-              <ProtectedRoute>
-                <ResumeEditor />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </AppLayout>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+
+        <Route element={<AppChrome />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/job-analysis" element={<JobUnderstanding />} />
+          <Route path="/applications" element={<Applications />} />
+          <Route path="/applications/:applicationId" element={<ApplicationDetail />} />
+          <Route path="/resume-builder" element={<ResumeLibrary />} />
+          <Route path="/resume-builder/:documentId" element={<ResumeEditor />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </ChatScopeProvider>
   );
 }
