@@ -9,6 +9,7 @@ import {
   IconSparkle,
   IconTrophy,
 } from "../components/Icons";
+import OnboardingGuide from "../components/OnboardingGuide";
 import { useAuth } from "../context/AuthContext";
 import {
   listApplications,
@@ -55,6 +56,11 @@ export default function Dashboard() {
   const [resumeDocs, setResumeDocs] = useState<ResumeDocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Mirrors session.user.user_metadata so dismissing hides the card immediately, without
+  // waiting on the updateUser round trip that OnboardingGuide fires in the background.
+  const [guideDismissed, setGuideDismissed] = useState(
+    () => session?.user.user_metadata?.onboarding_dismissed === true
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +166,12 @@ export default function Dashboard() {
         </p>
       )}
 
+      {!guideDismissed && (
+        <div style={{ marginTop: 20 }}>
+          <OnboardingGuide onDismiss={() => setGuideDismissed(true)} />
+        </div>
+      )}
+
       <section className="stat-grid">
         <div className="stat-tile">
           <div className="stat-tile-head">
@@ -257,15 +269,28 @@ export default function Dashboard() {
         </div>
 
         <div>
-          {resumeDocs.length > 0 && (
-            <div className="card">
-              <div className="card-head">
-                <h2>Your resumes</h2>
+          <div className="card">
+            <div className="card-head">
+              <h2>Your resumes</h2>
+              {resumeDocs.length > 0 && (
                 <Link to="/resume-builder" className="link-button">
                   All
                 </Link>
+              )}
+            </div>
+
+            {resumeDocs.length === 0 ? (
+              <div className="empty-state">
+                <span className="empty-state-icon">
+                  <IconDocument size={22} />
+                </span>
+                <p style={{ margin: 0 }}>No resumes yet.</p>
+                <Link to="/resume-builder" className="btn btn-secondary btn-sm">
+                  Build your first one
+                </Link>
               </div>
-              {resumeDocs.slice(0, 4).map((doc) => (
+            ) : (
+              resumeDocs.slice(0, 4).map((doc) => (
                 <div className="list-row" key={doc.id}>
                   <div className="list-row-main">
                     <Link className="list-row-title" to={`/resume-builder/${doc.id}`}>
@@ -274,9 +299,9 @@ export default function Dashboard() {
                     <div className="list-row-sub">Updated {formatDate(doc.updated_at)}</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

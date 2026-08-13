@@ -2245,6 +2245,74 @@ a.list-row-title:hover {
   color: var(--color-text-muted);
 }
 
+/* First-time-user guide (OnboardingGuide.tsx) */
+
+.onboarding-card {
+  position: relative;
+  border-color: var(--color-primary-soft);
+  background: linear-gradient(135deg, var(--color-primary-tint), var(--color-surface) 65%);
+}
+
+.onboarding-dismiss {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.onboarding-dismiss:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.onboarding-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.onboarding-step-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.onboarding-step-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.onboarding-step-sub {
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+}
+
 /* ---------------------------------------------------------------------------
    13. Chatbot
    --------------------------------------------------------------------------- */
