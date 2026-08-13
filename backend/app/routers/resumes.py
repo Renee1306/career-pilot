@@ -1,10 +1,8 @@
-import re
-
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.middleware.auth import AuthedUser, get_current_user
-from app.models.resume import ResumeCreate, ResumeExportRequest, ResumeOut
-from app.services import pdf_service, resume_service
+from app.models.resume import ResumeCreate, ResumeOut
+from app.services import resume_service
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])
 
@@ -51,12 +49,3 @@ def get_resume(resume_id: str, user: AuthedUser = Depends(get_current_user)):
     return resume
 
 
-@router.post("/export-pdf")
-def export_resume_pdf(payload: ResumeExportRequest, user: AuthedUser = Depends(get_current_user)):
-    pdf_bytes = pdf_service.render_resume_pdf(payload.text)
-    safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", payload.filename or "resume").strip("_") or "resume"
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}.pdf"'},
-    )

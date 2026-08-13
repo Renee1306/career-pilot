@@ -1,4 +1,5 @@
 import { useState } from "react";
+import LanguageSelect from "./LanguageSelect";
 import { generateExplanation, translateExplanation, type JobExplanation } from "../lib/api";
 
 export default function JobExplanationTab({
@@ -44,34 +45,31 @@ export default function JobExplanationTab({
     }
   };
 
-  const shown = language.trim() && translations[language.trim()] ? translations[language.trim()] : explanation;
+  const hasTranslation = !!language && !!translations[language];
+  const shown = hasTranslation ? translations[language] : explanation;
 
   return (
     <div>
-      <div className="form-row">
-        <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
-          {loading ? "Generating..." : explanation ? "Regenerate explanation" : "Generate explanation"}
-        </button>
-
-        {explanation && (
-          <>
-            <input
-              className="input"
-              style={{ width: 200 }}
-              placeholder="Translate to (e.g. Spanish)"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-            />
+      <div className="form-row" style={{ justifyContent: "space-between" }}>
+        <div className="form-row">
+          {explanation && (
+            <LanguageSelect value={language} onChange={setLanguage} translatedLanguages={Object.keys(translations)} />
+          )}
+          {explanation && language && !hasTranslation && (
             <button
               type="button"
               className="btn btn-secondary"
               onClick={handleTranslate}
-              disabled={translating || !language.trim()}
+              disabled={translating}
             >
-              {translating ? "Translating..." : "Translate"}
+              {translating ? "Translating..." : `Translate to ${language}`}
             </button>
-          </>
-        )}
+          )}
+        </div>
+
+        <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
+          {loading ? "Generating..." : explanation ? "Regenerate" : "Generate explanation"}
+        </button>
       </div>
 
       {error && <p className="alert" style={{ marginTop: 12 }}>{error}</p>}

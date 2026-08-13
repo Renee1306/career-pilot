@@ -1,0 +1,138 @@
+import { useState } from "react";
+import type { WorkExperienceEntry } from "../../lib/api";
+
+function newEntry(): WorkExperienceEntry {
+  return { id: crypto.randomUUID(), company: "", position: "", start_date: "", end_date: "", description: "" };
+}
+
+export default function WorkExperienceForm({
+  entries,
+  onChange,
+  onEnhance,
+}: {
+  entries: WorkExperienceEntry[];
+  onChange: (entries: WorkExperienceEntry[]) => void;
+  onEnhance: (text: string, context?: string) => Promise<string>;
+}) {
+  const [enhancingId, setEnhancingId] = useState<string | null>(null);
+
+  const update = (id: string, patch: Partial<WorkExperienceEntry>) =>
+    onChange(entries.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+
+  const remove = (id: string) => onChange(entries.filter((e) => e.id !== id));
+
+  const move = (index: number, dir: -1 | 1) => {
+    const target = index + dir;
+    if (target < 0 || target >= entries.length) return;
+    const next = [...entries];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  };
+
+  const handleEnhance = async (entry: WorkExperienceEntry) => {
+    if (!entry.description.trim()) return;
+    setEnhancingId(entry.id);
+    try {
+      const context = [entry.position, entry.company].filter(Boolean).join(" at ");
+      const improved = await onEnhance(entry.description, context || undefined);
+      update(entry.id, { description: improved });
+    } finally {
+      setEnhancingId(null);
+    }
+  };
+
+  return (
+    <div>
+      {entries.map((entry, index) => (
+        <div key={entry.id} className="subcard">
+          <div className="form-row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+            <span className="section-title" style={{ margin: 0 }}>
+              Experience {index + 1}
+            </span>
+            <div className="form-row" style={{ gap: 4 }}>
+              <button
+                type="button"
+                className="builder-reorder-btn"
+                disabled={index === 0}
+                onClick={() => move(index, -1)}
+                title="Move up"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                className="builder-reorder-btn"
+                disabled={index === entries.length - 1}
+                onClick={() => move(index, 1)}
+                title="Move down"
+              >
+                ▼
+              </button>
+              <button type="button" className="link-button" onClick={() => remove(entry.id)}>
+                Remove
+              </button>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="field" style={{ flex: 1 }}>
+              <label>Company</label>
+              <input
+                className="input"
+                value={entry.company}
+                onChange={(e) => update(entry.id, { company: e.target.value })}
+              />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Position</label>
+              <input
+                className="input"
+                value={entry.position}
+                onChange={(e) => update(entry.id, { position: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="field" style={{ flex: 1 }}>
+              <label>Start date</label>
+              <input
+                className="input"
+                value={entry.start_date}
+                onChange={(e) => update(entry.id, { start_date: e.target.value })}
+              />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>End date</label>
+              <input
+                className="input"
+                value={entry.end_date}
+                onChange={(e) => update(entry.id, { end_date: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label>Description</label>
+            <textarea
+              className="input"
+              rows={4}
+              value={entry.description}
+              onChange={(e) => update(entry.id, { description: e.target.value })}
+            />
+            <div className="form-row" style={{ marginTop: 4 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleEnhance(entry)}
+                disabled={enhancingId === entry.id || !entry.description.trim()}
+              >
+                {enhancingId === entry.id ? "Enhancing..." : "AI enhance"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+      <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange([...entries, newEntry()])}>
+        + Add experience
+      </button>
+    </div>
+  );
+}
