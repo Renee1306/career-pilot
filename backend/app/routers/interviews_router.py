@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.middleware.auth import AuthedUser, get_current_user
-from app.models.interview import InterviewRoundCreate, InterviewRoundOut, InterviewRoundUpdate
+from app.models.interview_model import InterviewRoundCreate, InterviewRoundOut, InterviewRoundUpdate
 from app.services import interview_service
 
 router = APIRouter(prefix="/interview-rounds", tags=["interviews"])

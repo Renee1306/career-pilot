@@ -1,6 +1,6 @@
 import { useState } from "react";
 import LanguageSelect from "./LanguageSelect";
-import { generateTypicalDay, translateTypicalDay, type TypicalDay } from "../lib/api";
+import { translateTypicalDay, type TypicalDay } from "../lib/api";
 
 const TIME_ALLOCATION_LABELS: Record<keyof TypicalDay["time_allocation"], string> = {
   technical_development: "Technical / Development",
@@ -23,23 +23,9 @@ export default function TypicalDayTab({
   translations: Record<string, TypicalDay>;
   onUpdated: (typicalDay: TypicalDay, translations: Record<string, TypicalDay>) => void;
 }) {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState("");
   const [translating, setTranslating] = useState(false);
-
-  const handleGenerate = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const analysis = await generateTypicalDay(jobId);
-      onUpdated(analysis.typical_day!, analysis.typical_day_translations);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate typical day");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleTranslate = async () => {
     if (!language.trim()) return;
@@ -60,22 +46,16 @@ export default function TypicalDayTab({
 
   return (
     <div>
-      <div className="form-row" style={{ justifyContent: "space-between" }}>
+      {typicalDay && (
         <div className="form-row">
-          {typicalDay && (
-            <LanguageSelect value={language} onChange={setLanguage} translatedLanguages={Object.keys(translations)} />
-          )}
-          {typicalDay && language && !hasTranslation && (
+          <LanguageSelect value={language} onChange={setLanguage} translatedLanguages={Object.keys(translations)} />
+          {language && !hasTranslation && (
             <button type="button" className="btn btn-secondary" onClick={handleTranslate} disabled={translating}>
               {translating ? "Translating..." : `Translate to ${language}`}
             </button>
           )}
         </div>
-
-        <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
-          {loading ? "Generating..." : typicalDay ? "Regenerate" : "Generate typical day"}
-        </button>
-      </div>
+      )}
 
       {error && <p className="alert" style={{ marginTop: 12 }}>{error}</p>}
 
@@ -149,7 +129,7 @@ export default function TypicalDayTab({
         </div>
       )}
 
-      {!typicalDay && !loading && <p className="muted">Generate a typical day to see it here.</p>}
+      {!typicalDay && <p className="muted">Click Generate on the left to see this here.</p>}
     </div>
   );
 }

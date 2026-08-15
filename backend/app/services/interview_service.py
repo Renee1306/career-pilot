@@ -1,7 +1,7 @@
 from supabase import Client
 
 from app.agents.interview_qna import generate_interview_qna
-from app.models.interview import InterviewRoundCreate, InterviewRoundUpdate
+from app.models.interview_model import InterviewRoundCreate, InterviewRoundUpdate
 from app.services import application_service, job_service, resume_service
 
 TABLE = "interview_rounds"

@@ -1,37 +1,73 @@
-import { getEffectiveSectionOrder, type ResumeContent } from "../../../lib/api";
-
-// Strips a leading bullet marker a source resume (or a pasted description) may already carry -
-// the app supplies its own via list-style, so leaving the original in would double it up.
-const BULLET_PREFIX = /^[•●▪◦‣∙*-]\s+/;
+import {
+  formatSkillLine,
+  getEffectiveSectionOrder,
+  splitBullets,
+  type HintTarget,
+  type ResumeContent,
+  type SkillsSection,
+} from "../../../lib/api";
+import { AppendedHints, Hintable, useHintLayer } from "./hints";
 
 /** Renders a description as a bulleted list when it has more than one line, or as a plain
  *  paragraph when it's a single line/sentence. A bare `<p>` collapses embedded newlines (HTML's
  *  default whitespace handling), which is what made an imported multi-bullet description render
  *  as one run-together, wrapped paragraph regardless of how the extractor formatted it - splitting
- *  on lines and rendering real `<li>` elements is what actually fixes that, not a CSS tweak alone. */
-function DescriptionText({ text }: { text: string }) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim().replace(BULLET_PREFIX, ""))
-    .filter(Boolean);
+ *  on lines and rendering real `<li>` elements is what actually fixes that, not a CSS tweak alone.
+ *
+ *  `splitBullets` also drops any bullet glyph the source resume brought with it, so what renders
+ *  here is character-identical to what the backend enumerated and what a hint carries as its
+ *  original text - which is what makes hint matching exact. */
+function DescriptionText({
+  text,
+  hintTarget,
+  entryId,
+}: {
+  text: string;
+  hintTarget?: HintTarget;
+  entryId?: string | null;
+}) {
+  const { appendHints } = useHintLayer();
+  const lines = splitBullets(text);
+  const pendingAdds = hintTarget ? appendHints(hintTarget, entryId ?? null) : [];
 
-  if (lines.length === 0) return null;
-  if (lines.length === 1) return <p>{lines[0]}</p>;
+  if (lines.length === 0 && pendingAdds.length === 0) return null;
+
+  const mark = (line: string, index: number) =>
+    hintTarget ? (
+      <Hintable target={hintTarget} entryId={entryId ?? null} index={index} text={line}>
+        {line}
+      </Hintable>
+    ) : (
+      line
+    );
+
+  // A single line normally reads better as a paragraph, but once there's a proposed extra bullet
+  // alongside it the list form is what the section will actually look like once accepted.
+  if (lines.length === 1 && pendingAdds.length === 0) return <p>{mark(lines[0], 0)}</p>;
+
   return (
     <ul className="resume-bullet-list">
       {lines.map((line, i) => (
-        <li key={i}>{line}</li>
+        <li key={i}>{mark(line, i)}</li>
       ))}
+      {hintTarget && <AppendedHints target={hintTarget} entryId={entryId ?? null} />}
     </ul>
   );
 }
 
 export function SummaryBlock({ text }: { text: string }) {
-  if (!text.trim()) return null;
+  const { appendHints } = useHintLayer();
+  const pendingAdds = appendHints("summary", null);
+  if (!text.trim() && pendingAdds.length === 0) return null;
   return (
     <section className="resume-section">
       <h2>Personal Statement</h2>
-      <p>{text}</p>
+      {text.trim() && (
+        <p>
+          <Hintable target="summary" text={text.trim()} />
+        </p>
+      )}
+      <AppendedHints target="summary" as="p" />
     </section>
   );
 }
@@ -52,7 +88,7 @@ export function ExperienceBlock({ entries }: { entries: ResumeContent["work_expe
               {[entry.start_date, entry.end_date].filter(Boolean).join(" – ")}
             </span>
           </div>
-          <DescriptionText text={entry.description} />
+          <DescriptionText text={entry.description} hintTarget="work_experience" entryId={entry.id} />
         </div>
       ))}
     </section>
@@ -95,26 +131,41 @@ export function ProjectsBlock({ entries }: { entries: ResumeContent["projects"] 
             <span className="resume-entry-dates">{entry.period}</span>
           </div>
           {entry.website && <div className="resume-entry-subtitle">{entry.website}</div>}
-          <DescriptionText text={entry.description} />
+          <DescriptionText text={entry.description} hintTarget="projects" entryId={entry.id} />
         </div>
       ))}
     </section>
   );
 }
 
-export function SkillsBlock({ items }: { items: string[] }) {
-  const skills = items.filter((s) => s.trim());
-  if (skills.length === 0) return null;
+export function SkillsBlock({ skills }: { skills: SkillsSection }) {
+  const { appendHints } = useHintLayer();
+  // One group renders as one bullet, which is also the unit a JD hint addresses. Empty groups are
+  // skipped but keep their index, so a hint still lands on the group the backend enumerated.
+  const groups = skills.groups
+    .map((group, index) => ({ group, index, line: formatSkillLine(group) }))
+    .filter((g) => g.line);
+  if (groups.length === 0 && appendHints("skills", null).length === 0) return null;
   return (
     <section className="resume-section">
       <h2>Skills</h2>
-      <div className="resume-skill-list">
-        {skills.map((skill, i) => (
-          <span className="resume-skill-pill" key={i}>
-            {skill}
-          </span>
+      <ul className="resume-bullet-list">
+        {groups.map(({ group, index, line }) => (
+          <li key={group.id || index}>
+            <Hintable target="skills" index={index} text={line}>
+              {group.category.trim() ? (
+                <>
+                  <strong>{group.category.trim()}:</strong>{" "}
+                  {group.items.filter((s) => s.trim()).join(", ")}
+                </>
+              ) : (
+                line
+              )}
+            </Hintable>
+          </li>
         ))}
-      </div>
+        <AppendedHints target="skills" />
+      </ul>
     </section>
   );
 }
@@ -161,13 +212,13 @@ export function LanguagesBlock({ entries }: { entries: ResumeContent["languages"
   return (
     <section className="resume-section">
       <h2>Languages</h2>
-      <div className="resume-skill-list">
+      <ul className="resume-bullet-list">
         {languages.map((entry) => (
-          <span className="resume-skill-pill" key={entry.id}>
+          <li key={entry.id}>
             {entry.language} · {entry.fluency}
-          </span>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
@@ -245,7 +296,7 @@ export function renderSectionBlock(key: string, content: ResumeContent) {
     case "projects":
       return <ProjectsBlock key={key} entries={content.projects} />;
     case "skills":
-      return <SkillsBlock key={key} items={content.skills.items} />;
+      return <SkillsBlock key={key} skills={content.skills} />;
     case "certificates":
       return <CertificatesBlock key={key} entries={content.certificates} />;
     case "awards":

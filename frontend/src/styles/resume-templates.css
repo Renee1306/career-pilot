@@ -5,14 +5,20 @@
   font-size: var(--resume-body-size, 13px);
 }
 
+/* h1/h2 colors are their own style-panel controls (see StylePanel.tsx) rather than being
+   pinned to --resume-accent: the accent still draws the structural chrome (heading rules,
+   the sidebar/banner fills, the timeline rail), so a candidate can keep an accent shape
+   while making the type itself read darker. Both fall back to the accent/body defaults so
+   documents saved before these fields existed render exactly as they did. */
 .resume-template h1 {
   font-size: calc(var(--resume-name-size, 20px) * 1.3);
+  color: var(--resume-name-color, inherit);
   margin: 0 0 4px;
 }
 
 .resume-template h2 {
   font-size: var(--resume-heading-size, 20px);
-  color: var(--resume-accent, #ff6b3d);
+  color: var(--resume-heading-color, var(--resume-accent, #ff6b3d));
   margin: 0 0 8px;
   border-bottom: 2px solid var(--resume-accent, #ff6b3d);
   padding-bottom: 4px;
@@ -71,21 +77,6 @@
   font-size: 0.95em;
 }
 
-.resume-skill-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.resume-skill-pill {
-  background: var(--resume-accent, #ff6b3d);
-  opacity: 0.85;
-  color: #fff;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.85em;
-}
-
 .resume-photo {
   object-fit: cover;
   flex-shrink: 0;
@@ -121,8 +112,12 @@
     var(--resume-padding-bottom, 40px) calc(var(--resume-padding-left, 40px) * 0.6);
 }
 
+/* The sidebar rail is filled with the accent colour, so its type is always white regardless
+   of the name/heading colours chosen for the light side of the page - those are picked
+   against a white sheet and would be unreadable here. */
 .resume-template-sidebar .resume-sidebar h1 {
   font-size: calc(var(--resume-name-size, 20px) * 1.1);
+  color: #fff;
 }
 
 .resume-template-sidebar .resume-sidebar .resume-contact-line {
@@ -137,10 +132,6 @@
 
 .resume-template-sidebar .resume-sidebar .resume-entry-dates {
   color: rgba(255, 255, 255, 0.75);
-}
-
-.resume-template-sidebar .resume-sidebar .resume-skill-pill {
-  background: rgba(255, 255, 255, 0.2);
 }
 
 .resume-template-sidebar .resume-main {
@@ -235,6 +226,12 @@
   color: #fff;
   padding: var(--resume-padding-top, 40px) var(--resume-padding-right, 40px) var(--resume-padding-bottom, 40px)
     var(--resume-padding-left, 40px);
+}
+
+/* Same reasoning as the sidebar rail above - the banner band is accent-filled, so its
+   name always stays white rather than taking the light-sheet name colour. */
+.resume-banner-header h1 {
+  color: #fff;
 }
 
 .resume-banner-header .resume-contact-line {

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.middleware.auth import AuthedUser, get_current_user
-from app.models.resume import ResumeCreate, ResumeOut
+from app.models.resume_model import ResumeCreate, ResumeOut
 from app.services import resume_service
 
 router = APIRouter(prefix="/resumes", tags=["resumes"])

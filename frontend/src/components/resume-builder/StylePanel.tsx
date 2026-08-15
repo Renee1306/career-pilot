@@ -35,19 +35,28 @@ export default function StylePanel({
     heading_font_size: 20,
     body_font_size: 13,
     line_height: 1.5,
+    name_color: "#211f26",
+    heading_color: "#ff6b3d",
+    body_color: "#211f26",
   };
   const resetStyle = () => onChange({ ...DEFAULT_STYLE });
   const styleIsDefault = (Object.keys(DEFAULT_STYLE) as Array<keyof ResumeStyle>).every(
     (key) => style[key] === DEFAULT_STYLE[key]
   );
 
-  const DEFAULT_SIZES = { name_font_size: 20, heading_font_size: 20, body_font_size: 13, line_height: 1.5 };
-  const resetSizes = () => onChange({ ...style, ...DEFAULT_SIZES });
-  const sizesAreDefault =
-    style.name_font_size === DEFAULT_SIZES.name_font_size &&
-    style.heading_font_size === DEFAULT_SIZES.heading_font_size &&
-    style.body_font_size === DEFAULT_SIZES.body_font_size &&
-    style.line_height === DEFAULT_SIZES.line_height;
+  const DEFAULT_TYPE = {
+    name_font_size: 20,
+    heading_font_size: 20,
+    body_font_size: 13,
+    line_height: 1.5,
+    name_color: "#211f26",
+    heading_color: "#ff6b3d",
+    body_color: "#211f26",
+  } as const;
+  const resetType = () => onChange({ ...style, ...DEFAULT_TYPE });
+  const typeIsDefault = (Object.keys(DEFAULT_TYPE) as Array<keyof typeof DEFAULT_TYPE>).every(
+    (key) => style[key] === DEFAULT_TYPE[key]
+  );
 
   return (
     <div className="builder-style-panel">
@@ -127,44 +136,44 @@ export default function StylePanel({
       </div>
 
       <div className="form-row" style={{ justifyContent: "space-between", alignItems: "baseline", marginTop: 8 }}>
-        <label style={{ margin: 0, fontWeight: 700 }}>Text size</label>
-        <button type="button" className="link-button" onClick={resetSizes} disabled={sizesAreDefault}>
+        <label style={{ margin: 0, fontWeight: 700 }}>Text</label>
+        <button type="button" className="link-button" onClick={resetType} disabled={typeIsDefault}>
           Reset to default
         </button>
       </div>
 
-      <div className="field">
-        <label>Profile heading size ({style.name_font_size}px)</label>
-        <input
-          type="range"
-          min={16}
-          max={32}
-          value={style.name_font_size}
-          onChange={(e) => set("name_font_size", Number(e.target.value))}
-        />
-      </div>
+      {/* Size and colour sit on one row per text role, so it reads as "here is the profile
+          heading, here is everything you can change about it" rather than as two disconnected
+          lists that the user has to mentally pair up. */}
+      <TextRoleField
+        label="Profile heading"
+        size={style.name_font_size}
+        min={16}
+        max={32}
+        onSizeChange={(v) => set("name_font_size", v)}
+        color={style.name_color}
+        onColorChange={(v) => set("name_color", v)}
+      />
 
-      <div className="field">
-        <label>Content heading size ({style.heading_font_size}px)</label>
-        <input
-          type="range"
-          min={16}
-          max={32}
-          value={style.heading_font_size}
-          onChange={(e) => set("heading_font_size", Number(e.target.value))}
-        />
-      </div>
+      <TextRoleField
+        label="Content heading"
+        size={style.heading_font_size}
+        min={16}
+        max={32}
+        onSizeChange={(v) => set("heading_font_size", v)}
+        color={style.heading_color}
+        onColorChange={(v) => set("heading_color", v)}
+      />
 
-      <div className="field">
-        <label>Body size ({style.body_font_size}px)</label>
-        <input
-          type="range"
-          min={10}
-          max={18}
-          value={style.body_font_size}
-          onChange={(e) => set("body_font_size", Number(e.target.value))}
-        />
-      </div>
+      <TextRoleField
+        label="Body"
+        size={style.body_font_size}
+        min={10}
+        max={18}
+        onSizeChange={(v) => set("body_font_size", v)}
+        color={style.body_color}
+        onColorChange={(v) => set("body_color", v)}
+      />
 
       <div className="field">
         <label>Line height ({style.line_height.toFixed(1)})</label>
@@ -175,6 +184,51 @@ export default function StylePanel({
           step={0.1}
           value={style.line_height}
           onChange={(e) => set("line_height", Number(e.target.value))}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TextRoleField({
+  label,
+  size,
+  min,
+  max,
+  onSizeChange,
+  color,
+  onColorChange,
+}: {
+  label: string;
+  size: number;
+  min: number;
+  max: number;
+  onSizeChange: (value: number) => void;
+  color: string;
+  onColorChange: (value: string) => void;
+}) {
+  return (
+    <div className="field">
+      <label>
+        {label} ({size}px)
+      </label>
+      <div className="form-row" style={{ gap: 8, alignItems: "center" }}>
+        <input
+          type="range"
+          style={{ flex: 1, minWidth: 0 }}
+          min={min}
+          max={max}
+          value={size}
+          onChange={(e) => onSizeChange(Number(e.target.value))}
+        />
+        <input
+          type="color"
+          className="input"
+          title={`${label} colour`}
+          aria-label={`${label} colour`}
+          value={color}
+          onChange={(e) => onColorChange(e.target.value)}
+          style={{ width: 40, height: 30, padding: 2, flexShrink: 0 }}
         />
       </div>
     </div>

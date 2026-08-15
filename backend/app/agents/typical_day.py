@@ -1,5 +1,5 @@
 from app.agents._llm import get_llm
-from app.models.job import TypicalDay
+from app.models.job_model import TypicalDay
 
 PROMPT = """You are the Typical Day Agent for CareerPilot.
 

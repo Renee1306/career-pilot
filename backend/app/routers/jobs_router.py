@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.middleware.auth import AuthedUser, get_current_user
-from app.models.job import (
+from app.models.job_model import (
     JobAnalysisOut,
     JobDescriptionCreate,
     JobDescriptionOut,

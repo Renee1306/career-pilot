@@ -1,5 +1,5 @@
 from app.agents._llm import get_llm
-from app.models.gmail import EmailClassification
+from app.models.gmail_model import EmailClassification
 
 PROMPT = """You are the Gmail Classification Agent for CareerPilot.
 

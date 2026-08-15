@@ -3,10 +3,12 @@ from datetime import datetime, timezone
 
 from supabase import Client
 
-from app.agents import resume_customizer, resume_enhancer, resume_importer
-from app.models.resume_document import (
-    JDMatchEvaluation,
-    JDSuggestions,
+from app.agents import jd_coach, resume_enhancer, resume_importer
+from app.models.resume_document_model import (
+    CoachMessage,
+    GapTurnResponse,
+    JDGap,
+    JDReview,
     ResumeContent,
     ResumeDocumentCreate,
     ResumeDocumentUpdate,
@@ -204,39 +206,23 @@ def enhance_text(text: str, context: str | None = None) -> str:
     return resume_enhancer.enhance_text(text, context)
 
 
-def evaluate_jd_match(client: Client, user_id: str, doc_id: str, jd_text: str) -> JDMatchEvaluation | None:
+def review_jd_match(client: Client, user_id: str, doc_id: str, jd_text: str) -> JDReview | None:
     doc = get_resume_document(client, user_id, doc_id)
     if doc is None:
         return None
-    return resume_customizer.evaluate_match(doc["content"], jd_text)
+    return jd_coach.review(doc["content"], jd_text)
 
 
-def suggest_jd_edits(client: Client, user_id: str, doc_id: str, jd_text: str) -> JDSuggestions | None:
+def run_gap_turn(
+    client: Client,
+    user_id: str,
+    doc_id: str,
+    jd_text: str,
+    gap: JDGap,
+    strengths: list[str],
+    history: list[CoachMessage],
+) -> GapTurnResponse | None:
     doc = get_resume_document(client, user_id, doc_id)
     if doc is None:
         return None
-    return JDSuggestions(suggestions=resume_customizer.suggest_edits(doc["content"], jd_text))
-
-
-def customize_for_jd(client: Client, user_id: str, doc_id: str, jd_text: str) -> dict | None:
-    source = (
-        client.table(TABLE)
-        .select("name,template_id,content,style")
-        .eq("user_id", user_id)
-        .eq("id", doc_id)
-        .maybe_single()
-        .execute()
-    )
-    if source is None or source.data is None:
-        return None
-    # Photo is intentionally NOT copied - see duplicate_resume_document's note above.
-    new_content = resume_customizer.customize_content(source.data["content"], jd_text)
-    row = {
-        "user_id": user_id,
-        "name": f"{source.data['name']} (JD tailored)",
-        "template_id": source.data["template_id"],
-        "content": new_content,
-        "style": source.data["style"],
-    }
-    res = client.table(TABLE).insert(row).execute()
-    return _with_signed_url(client, res.data[0])
+    return jd_coach.gap_turn(doc["content"], jd_text, gap, strengths, history)

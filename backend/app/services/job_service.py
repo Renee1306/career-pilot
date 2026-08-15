@@ -4,7 +4,7 @@ from app.agents.job_explainer import explain_job
 from app.agents.orchestrator import run_full_analysis
 from app.agents.translator import translate_structured
 from app.agents.typical_day import generate_typical_day
-from app.models.job import JobDescriptionCreate, JobExplanation, TypicalDay
+from app.models.job_model import JobDescriptionCreate, JobExplanation, TypicalDay
 
 JOBS_TABLE = "job_descriptions"
 ANALYSES_TABLE = "job_analyses"

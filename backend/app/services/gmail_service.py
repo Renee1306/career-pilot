@@ -5,17 +5,18 @@ import logging
 import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 from supabase import Client
 
 from app.agents.email_classifier import classify_emails
 from app.core.config import settings
-from app.models.application import ApplicationCreate, ApplicationUpdate, TimelineEntryCreate
-from app.models.gmail import DetectedUpdate, GmailSyncResult
+from app.models.application_model import ApplicationCreate, ApplicationUpdate, TimelineEntryCreate
+from app.models.gmail_model import DetectedUpdate, GmailSyncResult
 from app.services import application_service
 
 logger = logging.getLogger(__name__)
@@ -218,13 +219,33 @@ def _download_attachment(access_token: str, message_id: str, attachment_id: str)
     return base64.urlsafe_b64decode(padded_data)
 
 
-def _parse_iso(value: str | None) -> datetime | None:
+def _parse_iso(value: str | None, assume_tz: tzinfo = timezone.utc) -> datetime | None:
+    """Parse an ISO datetime, attaching `assume_tz` when the string carries no offset.
+
+    An email that says "your interview is at 3pm on Tuesday" gives the classifier no timezone to
+    work with, so `event_at` routinely comes back naive. Storing that naive value in a `timestamptz`
+    column makes Postgres read it as UTC, which shifted every Gmail-derived interview by the user's
+    whole UTC offset - 3pm showing up as 11pm for a UTC+8 user. A wall-clock time in an email is
+    the recipient's local time, so that is what an offset-less value is interpreted as.
+    """
     if not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=assume_tz)
+
+
+def _resolve_timezone(name: str | None) -> tzinfo:
+    """The caller's IANA timezone, falling back to UTC for an unknown or missing name - a bad
+    value from the client must never take a sync down."""
+    if not name:
+        return timezone.utc
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return timezone.utc
 
 
 def _get_seen_gmail_message_ids(client: Client, user_id: str) -> set[str]:
@@ -238,10 +259,16 @@ def _mark_processed(client: Client, user_id: str, gmail_message_id: str) -> None
     ).execute()
 
 
-def sync_gmail(client: Client, user_id: str, max_results: int = 15) -> GmailSyncResult:
+def sync_gmail(
+    client: Client, user_id: str, max_results: int = 15, timezone_name: str | None = None
+) -> GmailSyncResult:
     state = get_sync_state(client, user_id)
     if state is None or not state.get("refresh_token"):
         raise ValueError("Gmail is not connected")
+
+    # Interview times in emails are wall-clock times in the reader's own timezone, and only the
+    # browser knows what that is - see `_parse_iso`.
+    local_tz = _resolve_timezone(timezone_name)
 
     access_token = _refresh_access_token(state["refresh_token"])
 
@@ -310,8 +337,12 @@ def sync_gmail(client: Client, user_id: str, max_results: int = 15) -> GmailSync
                 if classification.meeting_link:
                     details["meeting_link"] = classification.meeting_link
                 if classification.entry_type == "case_study":
-                    if classification.deadline:
-                        details["deadline"] = classification.deadline
+                    # Normalised through the same local-timezone rule as event_at, so the stored
+                    # value always carries an explicit offset instead of leaving it to whatever
+                    # reads it next to guess.
+                    deadline = _parse_iso(classification.deadline, local_tz)
+                    if deadline:
+                        details["deadline"] = deadline.isoformat()
                     attachments_meta = []
                     for attachment in message["attachments"]:
                         pdf_bytes = _download_attachment(access_token, message["id"], attachment["attachment_id"])
@@ -323,7 +354,7 @@ def sync_gmail(client: Client, user_id: str, max_results: int = 15) -> GmailSync
                     if attachments_meta:
                         details["attachments"] = attachments_meta
 
-                occurred_at = _parse_iso(classification.event_at) or message["received_at"]
+                occurred_at = _parse_iso(classification.event_at, local_tz) or message["received_at"]
                 entry = TimelineEntryCreate(
                     entry_type=classification.entry_type,
                     occurred_at=occurred_at,

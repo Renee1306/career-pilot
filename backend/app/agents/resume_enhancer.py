@@ -1,5 +1,5 @@
 from app.agents._llm import get_openrouter_llm
-from app.models.resume_document import EnhanceTextResponse
+from app.models.resume_document_model import EnhanceTextResponse
 
 PROMPT = """You are the Resume Enhance Agent for CareerPilot.
 

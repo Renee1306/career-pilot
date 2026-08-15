@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.middleware.auth import AuthedUser, get_current_user
-from app.models.resume_document import (
+from app.models.resume_document_model import (
     EnhanceTextRequest,
     EnhanceTextResponse,
-    JDMatchEvaluation,
+    GapTurnRequest,
+    GapTurnResponse,
     JDMatchRequest,
-    JDSuggestions,
+    JDReview,
     ResumeDocumentCreate,
     ResumeDocumentListItem,
     ResumeDocumentOut,
@@ -115,25 +116,19 @@ def remove_photo(doc_id: str, user: AuthedUser = Depends(get_current_user)):
     return doc
 
 
-@router.post("/{doc_id}/jd-match", response_model=JDMatchEvaluation)
-def evaluate_jd_match(doc_id: str, payload: JDMatchRequest, user: AuthedUser = Depends(get_current_user)):
-    result = resume_document_service.evaluate_jd_match(user.client, user.id, doc_id, payload.jd_text)
+@router.post("/{doc_id}/jd-review", response_model=JDReview)
+def review_jd_match(doc_id: str, payload: JDMatchRequest, user: AuthedUser = Depends(get_current_user)):
+    result = resume_document_service.review_jd_match(user.client, user.id, doc_id, payload.jd_text)
     if result is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
     return result
 
 
-@router.post("/{doc_id}/jd-suggest", response_model=JDSuggestions)
-def suggest_jd_edits(doc_id: str, payload: JDMatchRequest, user: AuthedUser = Depends(get_current_user)):
-    result = resume_document_service.suggest_jd_edits(user.client, user.id, doc_id, payload.jd_text)
+@router.post("/{doc_id}/jd-gap-turn", response_model=GapTurnResponse)
+def run_gap_turn(doc_id: str, payload: GapTurnRequest, user: AuthedUser = Depends(get_current_user)):
+    result = resume_document_service.run_gap_turn(
+        user.client, user.id, doc_id, payload.jd_text, payload.gap, payload.strengths, payload.history
+    )
     if result is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
     return result
-
-
-@router.post("/{doc_id}/jd-customize", response_model=ResumeDocumentOut)
-def customize_for_jd(doc_id: str, payload: JDMatchRequest, user: AuthedUser = Depends(get_current_user)):
-    doc = resume_document_service.customize_for_jd(user.client, user.id, doc_id, payload.jd_text)
-    if doc is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
-    return doc

@@ -16,23 +16,50 @@
     visibility: hidden;
   }
 
+  /* #resume-print-root (see ResumePreview.tsx) is a permanently off-screen copy of the full,
+     unpaginated resume - it's what the on-screen page-break math measures, and it doubles as
+     the print source so print pagination always matches what the preview showed. Its inline
+     style hides it (visibility/pointer-events) for the screen case, which - being inline -
+     outranks the stylesheet rule below unless that rule carries !important too. */
   #resume-print-root,
   #resume-print-root * {
-    visibility: visible;
+    visibility: visible !important;
   }
 
-  /* Exact A4 width, and min-height explicitly reset to 0: the on-screen rule gives .resume-page a
-     full-A4 min-height (1123px) so the preview looks like a real sheet, but carrying that into
-     print makes the content box round up past the printable area and emit a trailing blank page.
-     The paper is already A4 via @page above, so the sheet is A4 regardless of content height. */
+  /* Exact A4 width, and min-height explicitly reset to 0: .resume-page has no forced min-height
+     any more (see components.css - the on-screen full-page look now comes from .resume-page-sheet
+     instead), but resetting it here still guards against the content box rounding up past the
+     printable area and emitting a trailing blank page. The paper is already A4 via @page above,
+     so the sheet is A4 regardless of content height. */
   #resume-print-root {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 210mm;
-    min-height: 0;
-    box-shadow: none;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 210mm !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
     transform: none !important;
+  }
+
+  /* A pending suggestion is an offer, not part of the resume. The highlight on an existing line
+     prints as ordinary text, and a proposed-but-unaccepted new line is removed from the document
+     entirely - exporting must never produce a PDF claiming something the user didn't accept. */
+  .resume-hint {
+    background: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    color: inherit !important;
+  }
+
+  .resume-hint-ghost-row,
+  .resume-hint-ghost {
+    display: none !important;
+  }
+
+  /* The popover is portalled to <body>, so it sits outside #resume-print-root and would
+     otherwise be hidden-but-still-paginated alongside the sheet. */
+  .hint-popover {
+    display: none !important;
   }
 
   /* .resume-page-container (see ResumePreview.tsx) holds #resume-print-root at a small

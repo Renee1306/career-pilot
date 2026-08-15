@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from app.core.config import settings
 from app.middleware.auth import AuthedUser, get_current_user
 from app.middleware.supabase_client import get_service_client
-from app.models.gmail import GmailConnectUrl, GmailSyncResult, GmailSyncStatus
+from app.models.gmail_model import GmailConnectUrl, GmailSyncResult, GmailSyncStatus
 from app.services import gmail_service
 
 logger = logging.getLogger(__name__)
@@ -50,8 +50,11 @@ def callback(code: str, state: str):
 
 
 @router.post("/sync", response_model=GmailSyncResult)
-def sync(user: AuthedUser = Depends(get_current_user)):
+def sync(timezone: str | None = None, user: AuthedUser = Depends(get_current_user)):
+    """`timezone` is the caller's IANA zone (e.g. "Asia/Kuala_Lumpur"). An interview time written
+    in an email is a wall-clock time with no offset, and only the browser knows which zone that
+    is meant to be read in - see `gmail_service._parse_iso`."""
     try:
-        return gmail_service.sync_gmail(user.client, user.id)
+        return gmail_service.sync_gmail(user.client, user.id, timezone_name=timezone)
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc

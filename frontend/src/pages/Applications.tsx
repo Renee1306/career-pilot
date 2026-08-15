@@ -48,6 +48,10 @@ export default function Applications() {
   const [jobs, setJobs] = useState<JobDescriptionOut[]>([]);
   const [resumes, setResumes] = useState<ResumeOut[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Only the very first load blanks the board. Later reloads (after a drag, a delete, a Gmail
+  // sync) keep the existing cards on screen, because swapping a populated board for a spinner
+  // on every small change reads as the page breaking rather than as progress.
+  const [loading, setLoading] = useState(true);
 
   const [companyDraft, setCompanyDraft] = useState("");
   const [positionDraft, setPositionDraft] = useState("");
@@ -63,7 +67,8 @@ export default function Applications() {
         setResumes(resumeList);
         setError(null);
       })
-      .catch(() => setError("Failed to load applications"));
+      .catch(() => setError("Failed to load applications"))
+      .finally(() => setLoading(false));
   };
 
   useEffect(loadAll, []);
@@ -189,6 +194,20 @@ export default function Applications() {
 
       {error && <p className="alert" style={{ marginBottom: 16 }}>{error}</p>}
 
+      {loading ? (
+        <div className="board">
+          {COLUMNS.map((col) => (
+            <div key={col.status} className="board-column">
+              <div className="board-column-title">
+                <span className={`board-column-dot board-column-dot-${col.status}`} />
+                {col.label}
+              </div>
+              <div className="board-card-skeleton" />
+              <div className="board-card-skeleton" />
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="board">
         {COLUMNS.map((col) => {
           const colApps = applications.filter((app) => app.status === col.status);
@@ -246,6 +265,7 @@ export default function Applications() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,6 @@ import BasicInfoForm from "./BasicInfoForm";
 import CertificatesForm from "./CertificatesForm";
 import CustomSectionForm from "./CustomSectionForm";
 import EducationForm from "./EducationForm";
-import JDCustomizeModal from "./JDCustomizeModal";
 import LanguagesForm from "./LanguagesForm";
 import ProjectsForm from "./ProjectsForm";
 import ReferencesForm from "./ReferencesForm";
@@ -43,7 +42,6 @@ export default function SectionList({
   onEnhance: (text: string, context?: string) => Promise<string>;
 }) {
   const [expanded, setExpanded] = useState<string | null>("basic_info");
-  const [jdModalOpen, setJdModalOpen] = useState(false);
 
   const toggleExpanded = (key: string) => setExpanded((cur) => (cur === key ? null : key));
 
@@ -100,15 +98,6 @@ export default function SectionList({
 
   return (
     <div className="builder-sections">
-      <button
-        type="button"
-        className="btn btn-secondary"
-        style={{ width: "100%", marginBottom: 14 }}
-        onClick={() => setJdModalOpen(true)}
-      >
-        ✨ Customize for a JD
-      </button>
-
       <div className="builder-section-item">
         <div className="builder-section-header" onClick={() => toggleExpanded("basic_info")}>
           <strong>Basic Info</strong>
@@ -221,8 +210,8 @@ export default function SectionList({
                 )}
                 {key === "skills" && (
                   <SkillsForm
-                    items={content.skills.items}
-                    onChange={(items) => onContentChange({ ...content, skills: { items } })}
+                    skills={content.skills}
+                    onChange={(skills) => onContentChange({ ...content, skills })}
                   />
                 )}
                 {key === "certificates" && (
@@ -270,15 +259,6 @@ export default function SectionList({
       <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} onClick={addCustomSection}>
         + Add custom section
       </button>
-
-      {jdModalOpen && (
-        <JDCustomizeModal
-          documentId={documentId}
-          content={content}
-          onContentChange={onContentChange}
-          onClose={() => setJdModalOpen(false)}
-        />
-      )}
     </div>
   );
 }
