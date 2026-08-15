@@ -5,7 +5,7 @@ from supabase import Client
 from app.agents import company_snapshot as company_snapshot_agent
 from app.agents import interview_qna, jd_coach
 from app.models.application_model import ApplicationCreate, ApplicationUpdate, TimelineEntryCreate, TimelineEntryUpdate
-from app.services import job_service, resume_document_service, resume_service
+from app.services import job_service, resume_document_service
 
 TABLE = "applications"
 TIMELINE_TABLE = "application_timeline_entries"
@@ -236,7 +236,7 @@ def generate_interview_questions(
     so an application created by Gmail sync (which never gets a linked JD) still works.
 
     Resume grounding prefers an explicitly chosen Resume Builder document - that is the resume the
-    candidate is actually sending - and falls back to the uploaded file linked to the application.
+    candidate is actually sending - and falls back to the document linked to the application.
     """
     application = get_application(client, user_id, application_id)
     if application is None:
@@ -253,14 +253,11 @@ def generate_interview_questions(
         job_text = f"Role: {position} at {company}. No full job description was provided."
 
     resume_text = ""
-    if resume_document_id:
-        doc = resume_document_service.get_resume_document(client, user_id, resume_document_id)
+    doc_id = resume_document_id or application.get("resume_document_id")
+    if doc_id:
+        doc = resume_document_service.get_resume_document(client, user_id, doc_id)
         if doc:
             resume_text = jd_coach.flatten_resume_content(doc["content"])
-    if not resume_text and application.get("resume_id"):
-        resume = resume_service.get_resume(client, user_id, application["resume_id"])
-        if resume:
-            resume_text = resume.get("parsed_text") or ""
 
     qna = interview_qna.generate_interview_qna(
         job_text,

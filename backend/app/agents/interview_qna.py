@@ -2,66 +2,214 @@ from app.agents._llm import get_llm
 from app.models.interview_model import InterviewQnA, QnARoundType
 
 ROUND_FOCUS = {
-    "behavioural": (
-        "This is the behavioural round. Ask about how the candidate has actually worked with other "
-        "people and handled real situations - ownership, conflict, failure, pressure, ambiguity, "
-        "feedback, and motivation for this company specifically.\n\n"
-        "Use the company snapshot below to make these questions specific to THIS employer rather "
-        "than generic. If the snapshot says the company values fast shipping, ask about a time the "
-        "candidate had to move quickly with incomplete information. If it describes a small team, "
-        "ask about wearing multiple hats. If it names a regulated or safety-critical domain, ask "
-        "about care and process. Where the snapshot is thin, fall back to well-known behavioural "
-        "questions rather than inventing facts about the company.\n\n"
-        "Do not ask deep technical questions here."
-    ),
-    "hiring_manager": (
-        "This is the hiring manager round. The interviewer owns the team and the work, so they are "
-        "judging whether this candidate can actually do THIS job. Ask about the candidate's past "
-        "experience in depth, how their background maps onto the responsibilities in the job "
-        "posting, the decisions and trade-offs they made, what they owned versus contributed to, "
-        "and how they would approach the problems this role would hand them.\n\n"
-        "Ground questions in specific things on the resume - a real project, a real technology, a "
-        "real result - so the candidate can prepare concrete material. Include role-relevant "
-        "technical depth where the posting calls for it, but not abstract trivia or puzzles."
-    ),
+    "behavioural": """
+<round_type>
+Behavioural
+</round_type>
+
+<focus>
+Assess how the candidate has handled real situations involving:
+- ownership
+- conflict
+- failure
+- pressure
+- ambiguity
+- feedback
+- motivation
+</focus>
+
+<question_style>
+Use the company snapshot to make questions employer-specific when reliable
+context exists.
+
+Do not invent company facts.
+
+Do not ask deep technical questions.
+</question_style>
+""",
+
+    "hiring_manager": """
+<round_type>
+Hiring Manager
+</round_type>
+
+<focus>
+Assess whether the candidate can perform this specific job.
+
+Focus on:
+- relevant past experience
+- responsibilities
+- technical decisions
+- trade-offs
+- ownership
+- contribution versus leadership
+- role-specific problem solving
+</focus>
+
+<question_style>
+Ground questions in specific resume projects, technologies, and results.
+Include technical depth when supported by the JD.
+Avoid abstract trivia and puzzles.
+</question_style>
+"""
 }
 
-PROMPT = """You are the Interview Prep Agent for CareerPilot.
+INTERVIEW_QA_PROMPT = """
+<role>
+You are CareerPilot's Interview Prep Agent.
+</role>
 
-Predict the questions this candidate is most likely to be asked in the round described below, and
-for each one tell them how to build a strong answer.
+<goal>
+Predict the questions this candidate is most likely to be asked in the
+specified interview round and explain how they should prepare their answers.
+</goal>
 
-CRITICAL - you are NOT writing answers for the candidate. Never produce a script, a sample answer,
-or prose written in the candidate's voice. An answer they read out is an answer they cannot defend
-when the interviewer follows up, and it will not sound like them. Your job is to prepare them to
-answer in their own words.
+<input>
 
-For each question return:
-- `question`: the question as an interviewer would actually phrase it.
-- `answer_should_cover`: 2-4 short points the answer needs to hit to land well. These are
-  instructions to the candidate about SHAPE and SUBSTANCE, not sentences to recite. Write them as
-  "what to do" - "Name the specific metric that improved and by how much", "State the trade-off you
-  rejected and why" - not as "I improved latency by 40%".
-- `draw_on`: which specific thing on the candidate's resume they should build this answer from,
-  named exactly as it appears there (e.g. "the Kerry chatbot project at Experian"). If the resume
-  genuinely has nothing relevant, say what kind of example they should think of instead - never
-  invent an experience they don't have.
+<interview_round>
+{round_focus}
+</interview_round>
 
-Do not invent facts, employers, technologies, metrics or experience the resume doesn't support. If
-the resume is thin on something the round will probe, that is worth surfacing: ask the question
-anyway and tell them honestly in `answer_should_cover` that they need a real example ready, or to
-be straightforward about the gap.
+<job_description>
+{job_text}
+</job_description>
+
+<candidate_resume>
+{resume_text}
+</candidate_resume>
+
+<company_snapshot>
+{company_context}
+</company_snapshot>
+
+</input>
+
+<source_of_truth>
+
+<resume>
+Use the resume as the source of truth for the candidate's:
+- experience
+- employers
+- projects
+- technologies
+- responsibilities
+- achievements
+- metrics
+
+Never invent any of these.
+
+If the resume shows a CURRENT role (no end date, or an end date of "Present"/"Current"/
+"Ongoing"), treat it as the primary source of examples - most of the questions should draw on
+that role's responsibilities, projects, and technologies, since it is the candidate's most
+relevant and most defensible evidence. Earlier roles are still fair game, but only bring one in
+when the current role genuinely doesn't cover something the JD or round needs - don't split
+attention evenly across every role just because they're all listed.
+</resume>
+
+<job_description>
+Use the JD to determine:
+- role responsibilities
+- required skills
+- technical areas
+- likely role-specific questions
+</job_description>
+
+<company_snapshot>
+Use the company snapshot only as contextual information.
+
+If it is empty or uncertain, do not invent company-specific details.
+</company_snapshot>
+
+</source_of_truth>
+
+<constraints>
+
+<no_scripted_answers>
+Do NOT write answers for the candidate.
+
+Never produce:
+- sample answers
+- scripts
+- first-person responses
+- prose written in the candidate's voice
+
+Prepare the candidate to answer in their own words.
+</no_scripted_answers>
+
+<no_invention>
+Do not invent:
+- employers
+- technologies
+- projects
+- metrics
+- responsibilities
+- achievements
+- experience
+</no_invention>
+
+<resume_grounding>
+When a relevant resume example exists, name the specific item exactly
+as it appears in the resume.
+
+If nothing relevant exists, say what type of real example the candidate
+should prepare instead.
+
+Never fabricate an example.
+</resume_grounding>
+
+</constraints>
+
+<round_strategy>
 
 {round_focus}
 
-Job posting:
-{job_text}
+</round_strategy>
 
-Candidate's resume:
-{resume_text}
+<question_requirements>
 
-Company snapshot (may be empty - if so, do not invent details about the company):
-{company_context}
+For every question return:
+
+<question>
+Write the question as an interviewer would naturally ask it.
+</question>
+
+<answer_should_cover>
+Return 2-4 short preparation points.
+
+These must describe WHAT the candidate should cover, not sentences
+they should memorize.
+
+Good:
+"Name the specific metric that improved and by how much."
+
+Bad:
+"I improved latency by 40%."
+</answer_should_cover>
+
+<draw_on>
+Name the specific resume item the candidate should use.
+
+Use the exact wording from the resume when possible.
+
+If no relevant resume evidence exists, describe the kind of real example
+the candidate should think of instead.
+</draw_on>
+
+</question_requirements>
+
+<quality_rules>
+<rule>Prioritize likely questions over generic question lists.</rule>
+<rule>Ground questions in the JD and resume.</rule>
+<rule>Use company context only when it is reliable and relevant.</rule>
+<rule>Do not ask deep technical questions in behavioural rounds.</rule>
+<rule>Do not generate advanced technical questions unless the JD supports them.</rule>
+<rule>Surface genuine weaknesses rather than hiding them.</rule>
+<rule>When the candidate has a current role, favor it as the source of examples over past roles.</rule>
+</quality_rules>
+
+<output>
+Return the result using the provided InterviewQnA structured output schema.
+</output>
 """
 
 
@@ -72,7 +220,7 @@ def generate_interview_qna(
     company_context: str = "",
 ) -> InterviewQnA:
     structured_llm = get_llm().with_structured_output(InterviewQnA)
-    prompt = PROMPT.format(
+    prompt = INTERVIEW_QA_PROMPT.format(
         round_focus=ROUND_FOCUS.get(round_type, ROUND_FOCUS["behavioural"]),
         job_text=job_text,
         resume_text=resume_text,

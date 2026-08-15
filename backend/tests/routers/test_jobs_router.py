@@ -22,7 +22,7 @@ ANALYSIS = {
     "job_description_id": "job-1",
     "explanation": {"one_sentence_summary": "..."},
     "typical_day": None,
-    "translations": {},
+    "explanation_translations": {},
     "typical_day_translations": {},
     "created_at": "2026-01-01T00:00:00Z",
 }

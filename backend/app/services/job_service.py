@@ -7,7 +7,7 @@ from app.agents.typical_day import generate_typical_day
 from app.models.job_model import JobDescriptionCreate, JobExplanation, TypicalDay
 
 JOBS_TABLE = "job_descriptions"
-ANALYSES_TABLE = "job_analyses"
+ANALYSES_TABLE = "job_analysis"
 
 
 def list_job_descriptions(client: Client, user_id: str) -> list[dict]:
@@ -123,10 +123,10 @@ def translate_explanation(client: Client, user_id: str, job_id: str, language: s
     explanation = JobExplanation.model_validate(analysis["explanation"])
     translated = translate_structured(explanation, language)
 
-    translations = {**(analysis.get("translations") or {}), language: translated.model_dump()}
+    translations = {**(analysis.get("explanation_translations") or {}), language: translated.model_dump()}
     res = (
         client.table(ANALYSES_TABLE)
-        .update({"translations": translations})
+        .update({"explanation_translations": translations})
         .eq("id", analysis["id"])
         .execute()
     )

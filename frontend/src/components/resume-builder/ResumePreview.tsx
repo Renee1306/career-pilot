@@ -24,10 +24,18 @@ const POPOVER_WIDTH = 320;
 // make the memoised hint layer look changed on each render and re-render every template block.
 const NO_HINTS: ResumeHint[] = [];
 
-// Where a page is allowed to end, in order of preference. A whole section staying together is
-// the nicest result, so it is tried first; only when a section is itself taller than a page do
-// we fall back to splitting it between entries, and then between individual bullet lines.
-const BREAK_TIERS = [".resume-section", ".resume-entry, .resume-entry-compact", ".resume-bullet-list > li"];
+// Elements a page break must never land inside - each is one visual unit (a job entry, a single
+// bullet line) that would look sliced in half if split across the page boundary. Deliberately
+// does NOT include whole sections: an earlier version pulled the break back to the start of a
+// section whenever the section didn't fully fit, which routinely stranded a short section (e.g.
+// "Languages") almost alone on a fresh page while leaving a large blank gap at the bottom of the
+// page before it - the page should fill up as normal and only pull back the minimum needed to
+// avoid a mid-entry or mid-bullet cut.
+const UNBREAKABLE_SELECTOR = ".resume-entry, .resume-entry-compact, .resume-bullet-list > li";
+// A section heading landing as the very last thing on a page, with its content pushed to the
+// next one, reads just as badly as a mid-entry cut - so a heading additionally needs this much
+// clearance beneath it before a break is allowed to land there.
+const HEADING_KEEP_WITH_NEXT = 32;
 
 function renderTemplate(templateId: string, content: ResumeContent, photoUrl: string | null) {
   if (templateId === "sidebar") return <SidebarTemplate content={content} photoUrl={photoUrl} />;
@@ -39,37 +47,50 @@ function renderTemplate(templateId: string, content: ResumeContent, photoUrl: st
 
 /** Y offsets (relative to the top of the resume) where each page ends.
  *
- *  Works down the tiers above: for each page take the LAST boundary that still fits, preferring
- *  whole sections, then whole entries, then whole lines. Only if no boundary at all falls inside
- *  the page - a single element taller than A4 - does it cut at the page height, which is the one
- *  case where slicing an element is unavoidable.
+ *  Fills each page up to a full PAGE_HEIGHT - the normal, space-efficient case - and only pulls
+ *  the break back when that lands inside an unbreakable unit or strands a heading, to the start
+ *  of whichever one it hit. Falls back to a hard cut at the page height only when a single
+ *  element is itself taller than a full page, since there is no boundary left to retreat to.
+ *
+ *  Page 2 onward budgets PAGE_HEIGHT - marginTop rather than the full PAGE_HEIGHT: each of those
+ *  pages gets a marginTop-tall spacer rendered above its slice (see the render loop below) so
+ *  every page opens with the same top margin as page 1, and the break math has to leave room
+ *  for that spacer or it would push the page's content past PAGE_HEIGHT.
  */
-function computeBreaks(root: HTMLElement): number[] {
+function computeBreaks(root: HTMLElement, marginTop: number): number[] {
   const rootTop = root.getBoundingClientRect().top;
   const totalHeight = root.scrollHeight;
 
-  const tiers = BREAK_TIERS.map((selector) =>
-    Array.from(root.querySelectorAll(selector), (el) => el.getBoundingClientRect().top - rootTop).sort(
-      (a, b) => a - b
-    )
-  );
+  const forbidden: Array<[number, number]> = [];
+  root.querySelectorAll(UNBREAKABLE_SELECTOR).forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    forbidden.push([rect.top - rootTop, rect.bottom - rootTop]);
+  });
+  root.querySelectorAll("h2").forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    forbidden.push([rect.top - rootTop, rect.bottom - rootTop + HEADING_KEEP_WITH_NEXT]);
+  });
+
+  const resolveBreak = (target: number, floor: number): number => {
+    let y = target;
+    for (let guard = 0; guard < forbidden.length + 1; guard++) {
+      const hit = forbidden.find(([start, end]) => y > start && y < end);
+      if (!hit) return y;
+      y = hit[0];
+    }
+    // Nothing but forbidden zones between floor and target (e.g. one oversized entry) - fall
+    // back to a hard break rather than looping forever.
+    return y > floor ? y : target;
+  };
 
   const breaks: number[] = [];
   let cursor = 0;
-  // `breaks.length` guard: every iteration must move the cursor forward, and there can never be
-  // more pages than the content is tall, so this cannot spin even on a pathological layout.
-  while (totalHeight - cursor > PAGE_HEIGHT && breaks.length < Math.ceil(totalHeight / PAGE_HEIGHT) + 1) {
-    const limit = cursor + PAGE_HEIGHT;
-    let next = 0;
-    for (const tier of tiers) {
-      const candidates = tier.filter((y) => y > cursor && y <= limit);
-      if (candidates.length > 0) {
-        next = candidates[candidates.length - 1];
-        break;
-      }
-    }
-    breaks.push(next > cursor ? next : limit);
-    cursor = breaks[breaks.length - 1];
+  let budget = PAGE_HEIGHT;
+  while (totalHeight - cursor > budget) {
+    const y = resolveBreak(cursor + budget, cursor);
+    breaks.push(y);
+    cursor = y;
+    budget = PAGE_HEIGHT - marginTop;
   }
   return breaks;
 }
@@ -97,19 +118,42 @@ export default function ResumePreview({
   const [breaks, setBreaks] = useState<number[]>([]);
   const [contentHeight, setContentHeight] = useState(0);
   const [active, setActive] = useState<{ hint: ResumeHint; anchor: HTMLElement } | null>(null);
+  // Mirrors the three state values above so `measure` can compare against the latest without
+  // taking a dependency on them - see the note below on why that comparison has to happen.
+  const lastMeasured = useRef({ scale: 1, contentHeight: 0, breaks: [] as number[] });
 
-  // Measures the full, unpaginated content off-screen (this same element doubles as the
-  // print source - see print.css) and works out where each on-screen page should end.
-  // Scale is purely visual (transform), so it never feeds back into these measurements.
+  // Measures the full, unpaginated content off-screen and works out where each page should
+  // end. Print reuses this same pagination (see print.css), rendering the on-screen sheet
+  // stack unscaled instead of re-flowing the resume through the browser's own page breaks,
+  // so the export always matches what the preview showed. Scale is purely visual (transform),
+  // so it never feeds back into these measurements.
   useLayoutEffect(() => {
     const container = containerRef.current;
     const measureEl = measureRef.current;
     if (!container || !measureEl) return;
 
+    const arraysEqual = (a: number[], b: number[]) => a.length === b.length && a.every((v, i) => v === b[i]);
+
     const measure = () => {
-      setScale(Math.min(1, container.clientWidth / PAGE_WIDTH));
-      setContentHeight(measureEl.scrollHeight);
-      setBreaks(computeBreaks(measureEl));
+      const s = Math.min(1, container.clientWidth / PAGE_WIDTH);
+      const ch = measureEl.scrollHeight;
+      const b = computeBreaks(measureEl, style.margin_top);
+      const prev = lastMeasured.current;
+
+      // computeBreaks reads layout (getBoundingClientRect) on every call, and this function runs
+      // inside a ResizeObserver callback - setting state unconditionally here means every firing
+      // writes a fresh `height` onto `container` (a new array reference always fails a naive
+      // equality check even when its values are identical), which is itself an observed resize.
+      // That write-inside-the-callback pattern is the textbook way to make a ResizeObserver never
+      // stop notifying itself, and it did: this page rendered blank with a "Maximum update depth
+      // exceeded" crash. Only touching state when a value has genuinely changed is what lets the
+      // loop actually terminate once the layout settles.
+      if (s === prev.scale && ch === prev.contentHeight && arraysEqual(b, prev.breaks)) return;
+
+      lastMeasured.current = { scale: s, contentHeight: ch, breaks: b };
+      setScale(s);
+      setContentHeight(ch);
+      setBreaks(b);
     };
 
     measure();
@@ -132,6 +176,13 @@ export default function ResumePreview({
       const scope = `${hint.target}|${hint.entry_id ?? ""}`;
       if (hint.mode === "append") {
         additions.set(scope, [...(additions.get(scope) ?? []), hint]);
+      } else if (hint.merge_bullet_index !== null) {
+        // A merge hint's original_text is both source lines newline-joined, in
+        // (bullet_index, merge_bullet_index) order - register it under each line's own
+        // position/text so either bullet lights up and opens the same popover.
+        const [firstText, secondText] = hint.original_text.split("\n");
+        replacements.set(`${scope}|${hint.bullet_index}|${firstText}`, hint);
+        replacements.set(`${scope}|${hint.merge_bullet_index}|${secondText}`, hint);
       } else {
         replacements.set(`${scope}|${hint.bullet_index}|${hint.original_text}`, hint);
       }
@@ -155,6 +206,7 @@ export default function ResumePreview({
     "--resume-name-color": style.name_color,
     "--resume-heading-color": style.heading_color,
     "--resume-body-color": style.body_color,
+    "--resume-text-align": style.text_align,
     "--resume-padding-top": `${style.margin_top}px`,
     "--resume-padding-right": `${style.margin_right}px`,
     "--resume-padding-bottom": `${style.margin_bottom}px`,
@@ -180,6 +232,11 @@ export default function ResumePreview({
               key={start}
               style={{ marginBottom: i < pageStarts.length - 1 ? PAGE_GAP : 0 }}
             >
+              {/* Page 1's top margin comes from the template's own padding, baked into the
+                  content below. Later pages are a slice of that same continuous flow, so
+                  without this spacer they'd open flush with whatever text landed at the
+                  break - this reproduces page 1's margin on every page after it. */}
+              {i > 0 && <div style={{ height: style.margin_top }} />}
               <div className="resume-page-window" style={{ height: Math.max(0, pageEnds[i] - start) }}>
                 <div className="resume-page" style={{ ...cssVars, marginTop: -start }}>
                   {templateNode}

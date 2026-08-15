@@ -4,7 +4,7 @@ APPLICATION = {
     "id": "app-1",
     "user_id": "user-123",
     "job_description_id": None,
-    "resume_id": None,
+    "resume_document_id": None,
     "status": "applied",
     "applied_date": None,
     "company": "Acme",

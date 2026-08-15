@@ -277,18 +277,6 @@ def sync_gmail(
 
     existing_apps = application_service.list_applications(client, user_id)
 
-    # Gmail's search results come back newest-first. Fetch all of them, then process
-    # oldest-first: status transitions (applied -> pending_interview -> rejected/offer)
-    # only make sense in chronological order - classifying newest-first could process a
-    # rejection before the application-confirmation email that should have created the
-    # application it belongs to, silently dropping the rejection and then having the
-    # older "applied" email recreate/overwrite it as "applied".
-    # Fetched concurrently: these are up to `max_results` independent, blocking Gmail HTTP calls,
-    # and doing them one at a time was the single biggest chunk of sync wall-clock time (the AI
-    # classification below is already batched, and measures ~4s for a dozen emails). A slow sync
-    # is not just a UX annoyance here - the browser gives up on the request long before the server
-    # finishes, so the writes all land but the frontend reports a generic failure (see the
-    # "Sync now" gotcha in PROJECT_CONTEXT.md).
     with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_MESSAGE_FETCHES) as executor:
         messages = list(executor.map(lambda mid: _get_message(access_token, mid), message_ids))
     messages.sort(key=lambda m: m["received_at"] or datetime.min.replace(tzinfo=timezone.utc))

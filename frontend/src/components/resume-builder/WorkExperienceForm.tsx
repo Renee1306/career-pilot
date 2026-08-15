@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { WorkExperienceEntry } from "../../lib/api";
 
 function newEntry(): WorkExperienceEntry {
@@ -8,14 +7,10 @@ function newEntry(): WorkExperienceEntry {
 export default function WorkExperienceForm({
   entries,
   onChange,
-  onEnhance,
 }: {
   entries: WorkExperienceEntry[];
   onChange: (entries: WorkExperienceEntry[]) => void;
-  onEnhance: (text: string, context?: string) => Promise<string>;
 }) {
-  const [enhancingId, setEnhancingId] = useState<string | null>(null);
-
   const update = (id: string, patch: Partial<WorkExperienceEntry>) =>
     onChange(entries.map((e) => (e.id === id ? { ...e, ...patch } : e)));
 
@@ -27,18 +22,6 @@ export default function WorkExperienceForm({
     const next = [...entries];
     [next[index], next[target]] = [next[target], next[index]];
     onChange(next);
-  };
-
-  const handleEnhance = async (entry: WorkExperienceEntry) => {
-    if (!entry.description.trim()) return;
-    setEnhancingId(entry.id);
-    try {
-      const context = [entry.position, entry.company].filter(Boolean).join(" at ");
-      const improved = await onEnhance(entry.description, context || undefined);
-      update(entry.id, { description: improved });
-    } finally {
-      setEnhancingId(null);
-    }
   };
 
   return (
@@ -117,16 +100,6 @@ export default function WorkExperienceForm({
               value={entry.description}
               onChange={(e) => update(entry.id, { description: e.target.value })}
             />
-            <div className="form-row" style={{ marginTop: 4 }}>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleEnhance(entry)}
-                disabled={enhancingId === entry.id || !entry.description.trim()}
-              >
-                {enhancingId === entry.id ? "Enhancing..." : "AI enhance"}
-              </button>
-            </div>
           </div>
         </div>
       ))}

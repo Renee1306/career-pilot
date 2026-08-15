@@ -14,7 +14,7 @@ class FullAnalysis:
 def run_full_analysis(job_text: str) -> FullAnalysis:
     """Runs the two independent analysis agents concurrently via LangChain's
     RunnableParallel, which executes each branch in a thread pool - since each
-    branch is a blocking Gemini HTTP call, this cuts wall-clock time roughly to
+    branch is a blocking DashScope HTTP call, this cuts wall-clock time roughly to
     that of the single slowest branch instead of the sum of both.
 
     Resume-match used to be a third parallel branch here. It is gone entirely -

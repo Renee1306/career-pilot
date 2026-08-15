@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from supabase import Client
 
-from app.agents import jd_coach, resume_enhancer, resume_importer
+from app.agents import jd_coach, resume_importer, summary_generator
 from app.models.resume_document_model import (
     CoachMessage,
     GapTurnResponse,
@@ -38,8 +38,6 @@ def list_resume_documents(client: Client, user_id: str) -> list[dict]:
         .execute()
     )
     rows = res.data
-    # Batched sign-urls call instead of one Storage round-trip per row - see resume_service
-    # .list_resumes for the same fix and why it matters.
     paths = [row["photo_url"] for row in rows if row.get("photo_url")]
     if not paths:
         return rows
@@ -202,8 +200,11 @@ def remove_photo(client: Client, user_id: str, doc_id: str) -> dict | None:
     return _with_signed_url(client, res.data[0]) if res.data else None
 
 
-def enhance_text(text: str, context: str | None = None) -> str:
-    return resume_enhancer.enhance_text(text, context)
+def generate_summary(client: Client, user_id: str, doc_id: str) -> str | None:
+    doc = get_resume_document(client, user_id, doc_id)
+    if doc is None:
+        return None
+    return summary_generator.generate_summary(doc["content"])
 
 
 def review_jd_match(client: Client, user_id: str, doc_id: str, jd_text: str) -> JDReview | None:

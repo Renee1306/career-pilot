@@ -14,6 +14,7 @@ Both paths emit the same `ResumeHint` shape so the frontend renders and applies 
 import re
 import uuid
 
+from typing import Literal
 from langchain_core.runnables import RunnableLambda, RunnableParallel
 from pydantic import BaseModel, Field
 
@@ -26,168 +27,563 @@ from app.models.resume_document_model import (
     ResumeHint,
 )
 
-# Shared preamble. This rule is the entire reason the gap conversation exists, so it is stated
-# once, concretely, and repeated verbatim in both prompts rather than paraphrased - the failure
-# mode being guarded against is the model "helpfully" bridging a gap with a plausible-sounding
-# claim the candidate would then be interviewed on.
-NO_INVENTION_RULE = """CRITICAL - never invent experience. The job description names technologies
-the candidate may not have. You must never introduce a technology, tool, platform, service,
-methodology, employer, metric or outcome that is not already evidenced in the material you were
-given. If the JD asks for FastAPI and the resume only shows Flask, keep Flask - do not write
-FastAPI anywhere. If the JD asks for AWS and the resume never mentions it, do not name AWS or any
-of its services. Do not invent numbers, percentages, team sizes or durations. Never bridge a gap
-by asserting the missing skill: the candidate will be interviewed on whatever this resume claims,
-and a claim they cannot defend costs them the job."""
-
-# Mirrors BULLET_PREFIX in frontend/src/components/resume-builder/templates/blocks.tsx.
 _BULLET_PREFIX = re.compile(r"^[•●▪◦‣∙*\-]\s+")
 
+NO_INVENTION_RULE = """
 
-EVAL_PROMPT = """You are the Resume Builder's JD-match evaluator for CareerPilot.
+<source_of_truth>
+CRITICAL: The resume is the source of truth.
 
-Compare the candidate's resume against the job description and report three things.
+Never add, infer, upgrade, or assume a skill, technology, tool, framework, platform,
+methodology, domain, certification, metric, achievement, responsibility, or experience
+unless it is explicitly evidenced in the resume.
 
-1. `match_score` - how well the resume ALREADY matches this job, 0-100. Judge the evidence that is
-   actually on the page, not the candidate's potential. Be honest rather than encouraging; an
-   inflated score makes the rest of this tool useless.
+IMPORTANT SKILL RULE:
+A technology mentioned in the JD but NOT explicitly present in the resume is NOT available
+for a rewrite.
 
-2. `strengths` - 2-5 things the resume genuinely already demonstrates for this specific job. Each
-   one must point at real content on the resume, not at a general quality. Say what the evidence is.
+Do NOT infer related technologies:
+- JavaScript does NOT imply TypeScript.
+- Python does NOT imply FastAPI, Django, Flask, or PyTorch.
+- Java does NOT imply Spring or Spring Boot.
+- AWS does NOT imply Azure, GCP, Lambda, S3, etc.
+- SQL does NOT imply PostgreSQL, MySQL, Oracle, etc.
+- React does NOT imply Next.js.
+- Docker does NOT imply Kubernetes.
+- LangChain does NOT imply LangGraph.
+- Machine Learning does NOT imply Deep Learning.
+- REST APIs does NOT imply FastAPI.
 
-3. `gaps` - the things this job asks for that the resume does not currently show. For each gap give:
-   - `title`: the missing capability in 2-6 words, as the JD would name it.
-   - `detail`: one sentence on what the JD wants here and why the resume doesn't currently cover it.
-   Return at most 5, ordered by how much they matter for this job. Only list a genuine absence - if
-   the resume shows the thing under different wording, that is a strength or a rewording
-   opportunity, NOT a gap. Return an empty list if the resume covers everything material.
+If the JD contains a technology that is absent from the resume, do NOT add it to the resume
+and do NOT rewrite an existing skill to imply it.
 
-Job description:
+Instead, treat it as a GAP that requires user confirmation through the gap interview.
+
+Example:
+Resume: "Programming Languages: Python, JavaScript, Java"
+JD: "TypeScript or JavaScript"
+WRONG:
+"Programming Languages: Python, JavaScript, TypeScript, Java"
+because TypeScript was not confirmed.
+
+CORRECT:
+"Programming Languages: Python, JavaScript, Java"
+and identify TypeScript as a potential gap.
+
+The candidate must explicitly confirm hands-on experience before a missing JD skill can ever
+be proposed as a new resume skill or bullet.
+</source_of_truth>
+"""
+
+
+EVAL_PROMPT = """
+<role>
+You are CareerPilot's JD-match evaluator.
+</role>
+
+<goal>
+Compare the candidate's resume against the job description and determine
+how well the resume already matches the role.
+</goal>
+
+<input>
+<job_description>
 {jd_text}
+</job_description>
 
-Resume:
+<resume>
 {resume_text}
+</resume>
+</input>
+
+<evaluation>
+
+<match_score>
+Give a score from 0-100 based only on evidence already present in the resume.
+Do not score the candidate's potential or what they could learn.
+Be honest rather than encouraging.
+</match_score>
+
+<strengths>
+Return 2-5 strengths that the resume genuinely demonstrates for this job.
+
+Each strength must:
+- Point to real evidence in the resume.
+- Explain why that evidence matters for this job.
+- Avoid generic statements about resume quality.
+</strengths>
+
+<gaps>
+Identify capabilities requested by the JD that the resume does not currently show.
+
+For each gap return:
+- title: 2-6 words using the JD's terminology
+- detail: one sentence explaining what the JD wants and why the resume does not cover it
+
+Rules:
+- Return at most 5 gaps.
+- Order gaps by importance to the role.
+- Do not report something as a gap if the resume demonstrates it using different wording.
+- If the resume covers everything material, return an empty list.
+</gaps>
+
+</evaluation>
+
+<rules>
+<rule>Judge only evidence present in the resume.</rule>
+<rule>Do not infer missing skills.</rule>
+<rule>Do not confuse potential with demonstrated experience.</rule>
+</rules>
+
+<output>
+Return the result using the provided structured output schema.
+</output>
+"""
+
+MEANINGFUL_CHANGE_RULE = """
+A rewrite is ONLY valid if it creates a meaningful improvement in ATS relevance, clarity,
+specificity, or evidence.
+
+Do NOT suggest edits that are merely:
+- synonyms
+- shortening or expanding an abbreviation
+- adjective removal/addition
+- hyphenation changes
+- punctuation changes
+- capitalization changes
+- word-order changes with the same meaning
+- replacing a word with a near-synonym
+- removing filler words without improving meaning
+- changing "GenAI-powered" to "GenAI"
+- changing "developed" to "built" when the claim remains equivalent
+- changing "utilized" to "used"
+- changing "implemented" to "developed" without additional information
+- changing "AI-powered" to "AI"
+- changing "cloud-based" to "cloud"
+- changing "RESTful API" to "REST API" unless the JD specifically requires a distinction
+- adding JD keywords that do not describe an existing resume fact.
+
+Examples of INVALID suggestions:
+
+Original:
+"Built a GenAI-powered chatbot using Python."
+
+Invalid:
+"Built a GenAI chatbot using Python."
+
+Why:
+The meaning and ATS value are essentially unchanged.
+
+Invalid:
+"Developed a GenAI-powered chatbot using Python."
+
+Why:
+Only a synonym was substituted.
+
+Invalid:
+"Built a chatbot powered by GenAI using Python."
+
+Why:
+Same information, different wording.
+
+In all of these cases, return NO edit.
+
+A valid rewrite should change the information emphasis or make an existing qualification
+more directly searchable by ATS.
+
+Example of a VALID rewrite:
+
+Original:
+"Built a finance chatbot using Python and LangChain."
+
+JD:
+"Develop AI applications using Python and LangChain."
+
+Valid:
+"Built a finance chatbot using Python and LangChain for conversational AI."
+
+ONLY if "conversational AI" is genuinely supported by the original context.
+
+If the only possible improvement is cosmetic, return NO edit.
+"""
+
+ATS_OPTIMIZATION_RULES = """
+ATS OPTIMIZATION:
+
+Optimize for keyword discoverability while preserving factual accuracy.
+
+Prefer:
+- Standard industry terminology over unusual phrasing.
+- Exact JD terminology when the candidate already has the corresponding experience.
+- Explicit technology names already supported by the resume.
+- Clear action + technology + task + outcome structure.
+- Specific nouns over vague pronouns.
+- Standard spellings of technologies and frameworks.
+- Explicit tool names rather than vague descriptions when the tool is already present.
+- Concise, scannable bullet points.
+- One major accomplishment or responsibility per bullet.
+
+Do NOT:
+- Stuff keywords into bullets unnaturally.
+- Add keywords only because they appear in the JD.
+- Repeat the same keyword multiple times.
+- Convert one technology into another related technology.
+- Infer missing skills.
+- Add generic buzzwords such as "innovative", "dynamic", "cutting-edge",
+  "results-driven", or "passionate" unless already supported.
+- Rewrite every bullet just because the JD contains matching words.
+
+ATS optimization should make existing qualifications easier to detect,
+not manufacture qualifications that the candidate does not have.
 """
 
 
-REFRAME_PROMPT = """You are the Resume Builder's JD-alignment reviewer for CareerPilot.
+REFRAME_PROMPT = """
+<role>
+You are CareerPilot's ATS Resume Reframing Agent.
+</role>
 
-Below is every editable line of the candidate's resume, each with a slot number. Propose rewrites
-that make individual lines speak more directly to the job description, using the JD's own
-terminology wherever it genuinely describes what the candidate already did.
+<goal>
+Improve the ATS relevance of existing resume lines using ONLY information
+already present in the resume.
+</goal>
 
-{no_invention_rule}
-
-What you MAY do: reword, re-emphasise, and lead with the JD-relevant part of a line, using the JD's
-vocabulary for work the candidate demonstrably did. Framing real experience as transferable is fine
-("containerised services with Docker") as long as you never claim the missing tool itself.
-
-What you MUST NOT do - the two failure modes that make this feature worse than useless:
-
-1. Do not bolt the JD's domain onto work that was not in that domain. Appending a phrase like
-   "for assurance and GRC workflows", "for regulated financial clients" or "to support compliance
-   reporting" to a line that never mentioned it is inventing the most important part of the claim.
-   The candidate built something; you do not know who it was for unless the resume says so. If the
-   only way to connect a line to the JD is to assert a context that isn't on the page, leave that
-   line alone.
-
-2. Do not return a line that says the same thing as the original. If your rewrite keeps the whole
-   sentence and only appends a clause, reorders two phrases, or swaps a word for a synonym, it is
-   not a suggestion - it is noise the candidate has to read and dismiss. Every edit you return must
-   change what the line actually communicates about this candidate for this job.
-
-Returning NO edits at all is a good answer for a resume that already fits. A short list of edits
-that clearly earn their place is always better than a long list of marginal ones.
-
-Rules for your output:
-- Return one edit per slot you want to change, keyed by that slot's number. Leave every other slot
-  alone - do not return an entry for a line you would not change.
-- Rewrite ONE line at a time. Never merge two slots into one, never split a slot into several, and
-  never return the whole section as a single blob. Each slot is a separate bullet that the
-  candidate accepts or rejects on its own.
-- `suggested_text` is the replacement for that line only. It must not repeat the job title, company
-  name or dates - those are rendered separately by the template - and must not start with a bullet
-  character; the template draws its own.
-- `reason` is one short, specific sentence naming what this rewrite improves FOR THIS JOB. "Uses
-  the JD's 'incident response' wording for the same on-call work" is useful. "Makes it stronger"
-  is not - the candidate is deciding whether to trust you. If your reason amounts to "keeps it the
-  same", you should not have returned the edit at all.
-- Skills slots hold one skill line each. You may reword one to match the JD's naming for a skill
-  the candidate already lists. You may not add a skill.
-
-Job description:
+<input>
+<job_description>
 {jd_text}
+</job_description>
 
-Editable resume lines:
+<editable_resume_lines>
 {slot_text}
+</editable_resume_lines>
+</input>
+
+<constraints>
+
+<source_of_truth>
+The resume is the source of truth.
+
+Never add, infer, upgrade, or assume:
+- skills
+- technologies
+- tools
+- frameworks
+- platforms
+- methodologies
+- domains
+- certifications
+- metrics
+- achievements
+- responsibilities
+- outcomes
+- experience
+
+unless explicitly supported by the resume.
+</source_of_truth>
+
+<skill_inference>
+Do not infer related technologies.
+
+Examples:
+- JavaScript does not imply TypeScript.
+- Python does not imply FastAPI, Django, Flask, or PyTorch.
+- Java does not imply Spring or Spring Boot.
+- AWS does not imply Azure, GCP, Lambda, or S3.
+- SQL does not imply PostgreSQL, MySQL, or Oracle.
+- React does not imply Next.js.
+- Docker does not imply Kubernetes.
+- LangChain does not imply LangGraph.
+- REST APIs do not imply FastAPI.
+</skill_inference>
+
+<missing_jd_skills>
+If a JD skill is absent from the resume:
+- Do not add it.
+- Do not rewrite an existing skill to imply it.
+- Treat it as a gap.
+- It must be investigated separately through the gap interview.
+</missing_jd_skills>
+
+<meaningful_change>
+A rewrite is valid only when it creates a meaningful improvement in:
+- ATS relevance
+- clarity
+- specificity
+- evidence
+
+Do not return cosmetic changes, synonym-only changes,
+or keyword insertion without a factual improvement.
+</meaningful_change>
+
+<ats_optimization>
+Prefer:
+- standard industry terminology
+- exact JD terminology when already supported
+- explicit technology names already present
+- clear action + technology + task + outcome structure
+- concise bullets
+- specific nouns
+
+Avoid:
+- keyword stuffing
+- repeated keywords
+- generic buzzwords
+- inferred technologies
+- unnecessary rewriting
+</ats_optimization>
+
+</constraints>
+
+<decision_process>
+For every possible edit, verify:
+
+1. Does the original line already contain the underlying experience?
+2. Is the proposed wording factually equivalent?
+3. Does it materially improve ATS relevance, clarity, specificity, or evidence?
+4. Does it introduce any unsupported fact?
+5. Would a recruiter recognize this as a meaningful improvement?
+
+If any answer is NO, return no edit.
+</decision_process>
+
+<restructuring>
+
+<split>
+Use split only when one bullet contains two genuinely unrelated accomplishments.
+
+Return both bullets separated by one newline.
+</split>
+
+<merge>
+Use merge only when two bullets in the same entry describe the same
+underlying accomplishment or one is clearly a fragment of the other.
+
+Do not merge bullets from different entries.
+</merge>
+
+<normal_rewrite>
+For normal rewrites, use:
+- ats_keyword_alignment
+- clarity
+- specificity
+- impact
+- none
+</normal_rewrite>
+
+</restructuring>
+
+<examples>
+
+<example>
+<original>
+Created APIs using FastAPI and Python.
+</original>
+
+<job_description>
+Build REST APIs using Python and FastAPI.
+</job_description>
+
+<result>
+Built REST APIs using Python and FastAPI.
+</result>
+
+<reason>
+Makes the already demonstrated REST API experience explicit.
+</reason>
+</example>
+
+<example>
+<original>
+Python, JavaScript
+</original>
+
+<job_description>
+Python, TypeScript, JavaScript
+</job_description>
+
+<result>
+NO EDIT
+</result>
+
+<reason>
+TypeScript is not present in the resume.
+</reason>
+</example>
+
+</examples>
+
+<output>
+Return one edit per editable slot.
+
+Do not return:
+- unchanged lines
+- cosmetic edits
+- synonym-only edits
+- unsupported JD keywords
+- edits that only insert keywords
+
+Return the result using the provided structured output schema.
+</output>
 """
 
 
-GAP_TURN_PROMPT = """You are the Resume Builder's gap interviewer for CareerPilot.
+GAP_TURN_PROMPT = """
+<role>
+You are CareerPilot's resume gap interviewer.
+</role>
 
-The candidate's resume does not currently evidence one thing this job asks for. Your job is to find
-out - by asking the candidate directly - whether they ACTUALLY have that experience, and only if
-they do, to collect enough concrete detail to write honest resume lines about it.
+<goal>
+Determine whether the candidate genuinely has experience with a capability
+requested by the job description but not currently demonstrated on the resume.
 
-The gap under discussion:
-  {gap_title}
-  {gap_detail}
+If they do, collect enough information to write truthful resume lines.
 
-{no_invention_rule}
+If they do not, leave the capability off the resume.
+</goal>
 
-In this conversation the ONLY source of truth about the candidate is what they have typed in the
-transcript below. The resume tells you where a confirmed answer should attach; it does not license
-any new claim. If the candidate has not said something, it does not go on the resume.
+<input>
 
-How to run the conversation:
-- Ask exactly ONE question per turn. Never bundle several questions into one message.
-- Ask AT MOST 5 questions in total across the whole conversation. Count the assistant turns already
-  in the transcript. If 5 have been asked, you must stop asking and decide.
-- Your first question establishes whether they have the experience at all. Ask it plainly and
-  without leading them - "Have you worked with X?", not "Tell me about your X experience", which
-  presumes the answer.
-- After that, only ask what you still need in order to write a truthful line: what they actually
-  did, which role or project on their resume it belongs to, and the scale or outcome. Skip anything
-  they have already told you.
-- Do NOT ask about things this resume already demonstrates well. Those are already covered and
-  asking again wastes the candidate's patience. Already covered: {strengths}
-- Keep questions short and conversational. No preamble, no restating what they just said.
+<gap>
+<title>{gap_title}</title>
+<detail>{gap_detail}</detail>
+</gap>
 
-How to decide `status`:
-- "declined" - the candidate says they don't have this experience, have only studied or read about
-  it, or have never used it in real work. Also use this if their answers stay too vague to support
-  any honest claim, or if they ask to move on without having given anything concrete. Set `hints`
-  to an empty list. In `message`, tell them plainly that you won't add it, in one sentence, and say
-  it is better left off than claimed - this is a good outcome, not a failure, so do not push back
-  or ask again.
-- "asking" - you still need something. Put the single next question in `message`.
-- "ready" - the candidate has confirmed the experience AND given you enough specifics, or they have
-  told you to go ahead and what they have already given IS enough to write something truthful. Put
-  the proposed lines in `hints_json` and use `message` for one short sentence saying what you've
-  drafted and that it's waiting on the preview for them to accept.
+<resume_strengths>
+{strengths}
+</resume_strengths>
 
-When `status` is "ready", fill `additions` with the lines to add:
-- `entry_slot` says where each line attaches - use one of the numbered entries below. Choose the
-  role or project the candidate actually named. If they described it as its own thing and no listed
-  entry fits, use -1 to attach it to the personal statement instead.
-- `new_text` is ONE resume bullet, in the resume's voice (past tense, starts with a verb, no "I").
-  Every fact in it must be traceable to a specific thing the candidate typed. If they said "I
-  automated our deploys with Jenkins at my internship", you may write about Jenkins and deploys;
-  you may not add "reducing deploy time by 40%" because they never said that.
-- Write one bullet per distinct thing they described - do not pack several claims into one line.
-  Two or three bullets is normally plenty; never more than four.
-- `reason` explains in one sentence what this covers for this job and that it comes from their
-  answers.
-- `new_skills` may list skills the candidate explicitly confirmed using. Leave it empty unless they
-  named the skill themselves.
-
-Entries this can attach to:
+<resume_entries>
 {entry_text}
+</resume_entries>
 
-Job description:
+<job_description>
 {jd_text}
+</job_description>
 
-Conversation so far (empty means this is your opening question):
+<conversation>
 {transcript}
+</conversation>
+
+</input>
+
+<constraints>
+
+<source_of_truth>
+In this conversation, the candidate's answers are the only source of truth
+for newly confirmed experience.
+
+The resume shows where confirmed information can attach.
+It does NOT authorize new claims.
+</source_of_truth>
+
+<question_limit>
+Ask exactly ONE question per turn.
+
+Ask at most 5 questions across the entire conversation.
+Count previous assistant questions in the transcript.
+</question_limit>
+
+<question_strategy>
+
+<first_question>
+The first question must establish whether the candidate has actual
+hands-on experience.
+
+Ask:
+"Have you worked with X?"
+
+Do not ask a leading question such as:
+"Tell me about your X experience."
+</first_question>
+
+<follow_up>
+After confirmation, ask only for information still required to write
+a truthful resume line:
+- what they did
+- where they did it
+- scale or outcome
+
+Do not ask for information already provided.
+</follow_up>
+
+<entry_selection>
+Before asking which role or project the experience belongs to,
+search the entire transcript.
+
+If exactly one resume entry plausibly matches what they said,
+use that entry without asking again.
+
+Only ask when the attachment is genuinely ambiguous.
+</entry_selection>
+
+</question_strategy>
+
+<avoid_redundancy>
+Do not ask about skills the resume already demonstrates well.
+
+Already covered:
+{strengths}
+</avoid_redundancy>
+
+</constraints>
+
+<status_rules>
+
+<asking>
+Use when more information is required.
+
+Return exactly one next question in message.
+</asking>
+
+<ready>
+Use when:
+- the candidate confirmed the experience
+- enough concrete information has been provided
+
+Generate truthful resume additions.
+</ready>
+
+<declined>
+Use when:
+- the candidate does not have the experience
+- they only studied it
+- they only read about it
+- their answers remain too vague
+- they ask to move on
+
+Return no additions or skills.
+</declined>
+
+</status_rules>
+
+<resume_additions>
+
+<entry_slot>
+Attach each addition to the role or project the candidate actually named.
+Use -1 for Personal Statement only when no listed entry fits.
+</entry_slot>
+
+<new_text>
+Write one resume bullet.
+
+Rules:
+- past tense
+- starts with a verb
+- no "I"
+- every fact must trace directly to the candidate's answers
+</new_text>
+
+<new_skills>
+Only include skills the candidate explicitly confirmed using.
+
+Never infer related skills.
+</new_skills>
+
+</resume_additions>
+
+<output>
+Return the result using the provided structured output schema.
+</output>
 """
 
 
@@ -206,6 +602,16 @@ class _SlotEdit(BaseModel):
     slot: int
     suggested_text: str = ""
     reason: str = ""
+    change_type: Literal[
+        "ats_keyword_alignment",
+        "clarity",
+        "specificity",
+        "impact",
+        "split",
+        "merge",
+        "none"
+    ] = "none"
+    merge_with_slot: int | None = None
 
 
 class _ReframeResult(BaseModel):
@@ -444,6 +850,8 @@ def _reframe(slots: list[_Slot], jd_text: str) -> _ReframeResult:
                 jd_text=jd_text,
                 slot_text=_format_slots(slots),
                 no_invention_rule=NO_INVENTION_RULE,
+                meaningful_change_rule=MEANINGFUL_CHANGE_RULE,
+                ats_optimization_rules=ATS_OPTIMIZATION_RULES,
             )
         )
     )
@@ -467,11 +875,52 @@ def review(content: dict, jd_text: str) -> JDReview:
     reframes: _ReframeResult = results["reframes"]
 
     hints: list[ResumeHint] = []
+    # A merge spends two slots on one hint - once a slot has gone into a merge, any other edit
+    # naming it (including a redundant standalone edit the model returns for it anyway) is
+    # dropped rather than applied twice.
+    consumed_slots: set[int] = set()
     for edit in reframes.edits:
-        if not 0 <= edit.slot < len(slots):
+        if edit.slot in consumed_slots or not 0 <= edit.slot < len(slots):
             continue
         slot = slots[edit.slot]
         suggested = _BULLET_PREFIX.sub("", edit.suggested_text.strip())
+        if not suggested:
+            continue
+
+        other_slot = edit.merge_with_slot
+        # Merging only makes sense between two bullets of the same description (applying it
+        # goes through the entry's own bullet list - see applyToDescription in lib/api.ts),
+        # which rules out skills and the summary along with a merge target from another entry.
+        if (
+            edit.change_type == "merge"
+            and other_slot is not None
+            and other_slot != edit.slot
+            and other_slot not in consumed_slots
+            and 0 <= other_slot < len(slots)
+            and slot.target in ("work_experience", "projects")
+            and slots[other_slot].target == slot.target
+            and slots[other_slot].entry_id == slot.entry_id
+        ):
+            other = slots[other_slot]
+            consumed_slots.add(edit.slot)
+            consumed_slots.add(other_slot)
+            hints.append(
+                ResumeHint(
+                    id=str(uuid.uuid4()),
+                    target=slot.target,
+                    entry_id=slot.entry_id,
+                    entry_label=slot.entry_label,
+                    bullet_index=slot.bullet_index,
+                    merge_bullet_index=other.bullet_index,
+                    mode="replace",
+                    original_text=f"{slot.text}\n{other.text}",
+                    suggested_text=suggested,
+                    reason=edit.reason.strip(),
+                    source="reframe",
+                )
+            )
+            continue
+
         # A rewrite that doesn't actually change what the line says is noise the user has to read
         # and dismiss by hand, so it never becomes a hint no matter what the model claimed.
         if not _is_meaningful_change(slot.text, suggested):

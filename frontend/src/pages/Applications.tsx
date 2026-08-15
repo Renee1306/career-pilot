@@ -7,12 +7,12 @@ import {
   deleteApplication,
   listApplications,
   listJobDescriptions,
-  listResumes,
+  listResumeDocuments,
   updateApplication,
   type ApplicationOut,
   type ApplicationStatus,
   type JobDescriptionOut,
-  type ResumeOut,
+  type ResumeDocumentListItem,
 } from "../lib/api";
 
 const COLUMNS: { status: ApplicationStatus; label: string }[] = [
@@ -46,7 +46,7 @@ function formatUpdatedDate(isoDate: string): string {
 export default function Applications() {
   const [applications, setApplications] = useState<ApplicationOut[]>([]);
   const [jobs, setJobs] = useState<JobDescriptionOut[]>([]);
-  const [resumes, setResumes] = useState<ResumeOut[]>([]);
+  const [resumeDocs, setResumeDocs] = useState<ResumeDocumentListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Only the very first load blanks the board. Later reloads (after a drag, a delete, a Gmail
   // sync) keep the existing cards on screen, because swapping a populated board for a spinner
@@ -55,16 +55,16 @@ export default function Applications() {
 
   const [companyDraft, setCompanyDraft] = useState("");
   const [positionDraft, setPositionDraft] = useState("");
-  const [resumeId, setResumeId] = useState("");
+  const [resumeDocumentId, setResumeDocumentId] = useState("");
   const [creating, setCreating] = useState(false);
   const [dragOverStatus, setDragOverStatus] = useState<ApplicationStatus | null>(null);
 
   const loadAll = () => {
-    Promise.all([listApplications(), listJobDescriptions(), listResumes()])
-      .then(([apps, jobList, resumeList]) => {
+    Promise.all([listApplications(), listJobDescriptions(), listResumeDocuments()])
+      .then(([apps, jobList, docList]) => {
         setApplications(apps);
         setJobs(jobList);
-        setResumes(resumeList);
+        setResumeDocs(docList);
         setError(null);
       })
       .catch(() => setError("Failed to load applications"))
@@ -81,11 +81,11 @@ export default function Applications() {
       await createApplication({
         company: companyDraft.trim(),
         position: positionDraft.trim() || undefined,
-        resume_id: resumeId || undefined,
+        resume_document_id: resumeDocumentId || undefined,
       });
       setCompanyDraft("");
       setPositionDraft("");
-      setResumeId("");
+      setResumeDocumentId("");
       loadAll();
       close();
     } catch (err) {
@@ -126,7 +126,7 @@ export default function Applications() {
   };
 
   const jobById = (id: string | null) => jobs.find((j) => j.id === id);
-  const resumeById = (id: string | null) => resumes.find((r) => r.id === id);
+  const resumeDocById = (id: string | null) => resumeDocs.find((r) => r.id === id);
 
   return (
     <div>
@@ -167,13 +167,13 @@ export default function Applications() {
                   <select
                     id="track-resume"
                     className="input"
-                    value={resumeId}
-                    onChange={(e) => setResumeId(e.target.value)}
+                    value={resumeDocumentId}
+                    onChange={(e) => setResumeDocumentId(e.target.value)}
                   >
                     <option value="">No resume</option>
-                    {resumes.map((resume) => (
-                      <option key={resume.id} value={resume.id}>
-                        {resume.label ?? resume.id}
+                    {resumeDocs.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.name}
                       </option>
                     ))}
                   </select>
@@ -254,8 +254,10 @@ export default function Applications() {
                       {cardCompany(app, job)}
                     </Link>
                     {position && <div className="board-card-position">{position}</div>}
-                    {app.resume_id && (
-                      <span className="board-card-meta">Resume: {resumeById(app.resume_id)?.label ?? app.resume_id}</span>
+                    {app.resume_document_id && (
+                      <span className="board-card-meta">
+                        Resume: {resumeDocById(app.resume_document_id)?.name ?? app.resume_document_id}
+                      </span>
                     )}
                     <div className="board-card-updated">Updated {formatUpdatedDate(app.updated_at)}</div>
                   </div>

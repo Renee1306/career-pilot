@@ -7,7 +7,6 @@ import StylePanel from "../components/resume-builder/StylePanel";
 import TemplatePickerModal from "../components/resume-builder/TemplatePickerModal";
 import {
   applyResumeHint,
-  enhanceResumeText,
   getResumeDocument,
   updateResumeDocument,
   type ResumeContent,
@@ -85,9 +84,6 @@ export default function ResumeEditor() {
     };
   }, []);
 
-  const handleEnhance = (text: string, context?: string) =>
-    enhanceResumeText({ text, context }).then((res) => res.text);
-
   const dismissHint = (hint: ResumeHint) => setHints((prev) => prev.filter((h) => h.id !== hint.id));
 
   const acceptHint = (hint: ResumeHint) => {
@@ -145,7 +141,6 @@ export default function ResumeEditor() {
           photoUrl={state.photo_url}
           onContentChange={(content) => setState({ ...state, content })}
           onPhotoUrlChange={(photo_url) => setState({ ...state, photo_url })}
-          onEnhance={handleEnhance}
         />
         <div className="builder-preview-pane">
           <ResumePreview

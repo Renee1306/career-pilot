@@ -64,8 +64,12 @@ export default function ResumeLibrary() {
   const [renameValue, setRenameValue] = useState("");
   const navigate = useNavigate();
 
+  // This page is the source of truth for the list (create/rename/duplicate/delete all happen
+  // here), so it always forces a fresh fetch rather than reading the shared picker cache (see
+  // listResumeDocuments in lib/api.ts) - a rename in particular doesn't update that cache, since
+  // patching every cached entry for every autosave elsewhere would defeat the point of caching.
   const load = () => {
-    listResumeDocuments()
+    listResumeDocuments({ force: true })
       .then((docs) => {
         setDocuments(docs);
         setLoading(false);

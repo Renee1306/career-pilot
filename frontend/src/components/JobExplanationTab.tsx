@@ -23,7 +23,7 @@ export default function JobExplanationTab({
     setTranslating(true);
     try {
       const analysis = await translateExplanation(jobId, language.trim());
-      onUpdated(analysis.explanation!, analysis.translations);
+      onUpdated(analysis.explanation!, analysis.explanation_translations);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to translate");
     } finally {
@@ -126,16 +126,12 @@ export default function JobExplanationTab({
           <hr className="divider" />
 
           <section>
-            <div className="section-title">5. Questions they may ask</div>
-            <h3>HR questions</h3>
+            <div className="section-title">5. Questions they may ask about this role</div>
             <ul>
-              {shown.likely_questions.hr_questions.map((q) => (
-                <li key={q}>{q}</li>
-              ))}
-            </ul>
-            <h3>Basic technical / role questions</h3>
-            <ul>
-              {shown.likely_questions.role_questions.map((q) => (
+              {/* Falls back to [] for analyses generated before role_questions moved onto
+                  JobExplanation directly - older rows still carry the retired
+                  likely_questions.role_questions shape instead. */}
+              {(shown.role_questions ?? []).map((q) => (
                 <li key={q}>{q}</li>
               ))}
             </ul>

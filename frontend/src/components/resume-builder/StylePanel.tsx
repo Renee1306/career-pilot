@@ -38,6 +38,7 @@ export default function StylePanel({
     name_color: "#211f26",
     heading_color: "#ff6b3d",
     body_color: "#211f26",
+    text_align: "left",
   };
   const resetStyle = () => onChange({ ...DEFAULT_STYLE });
   const styleIsDefault = (Object.keys(DEFAULT_STYLE) as Array<keyof ResumeStyle>).every(
@@ -133,6 +134,22 @@ export default function StylePanel({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="field">
+        <label>Text alignment</label>
+        <div className="form-row" style={{ gap: 6 }}>
+          {(["left", "center", "right", "justify"] as const).map((align) => (
+            <button
+              key={align}
+              type="button"
+              className={"btn btn-sm " + (style.text_align === align ? "btn-primary" : "btn-ghost")}
+              onClick={() => set("text_align", align)}
+            >
+              {align[0].toUpperCase() + align.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="form-row" style={{ justifyContent: "space-between", alignItems: "baseline", marginTop: 8 }}>
