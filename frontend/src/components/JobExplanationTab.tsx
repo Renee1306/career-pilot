@@ -1,6 +1,6 @@
 import { useState } from "react";
 import LanguageSelect from "./LanguageSelect";
-import { generateExplanation, translateExplanation, type JobExplanation } from "../lib/api";
+import { translateExplanation, type JobExplanation } from "../lib/api";
 
 export default function JobExplanationTab({
   jobId,
@@ -13,23 +13,9 @@ export default function JobExplanationTab({
   translations: Record<string, JobExplanation>;
   onUpdated: (explanation: JobExplanation, translations: Record<string, JobExplanation>) => void;
 }) {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState("");
   const [translating, setTranslating] = useState(false);
-
-  const handleGenerate = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const analysis = await generateExplanation(jobId);
-      onUpdated(analysis.explanation!, analysis.translations);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate explanation");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleTranslate = async () => {
     if (!language.trim()) return;
@@ -50,12 +36,10 @@ export default function JobExplanationTab({
 
   return (
     <div>
-      <div className="form-row" style={{ justifyContent: "space-between" }}>
+      {explanation && (
         <div className="form-row">
-          {explanation && (
-            <LanguageSelect value={language} onChange={setLanguage} translatedLanguages={Object.keys(translations)} />
-          )}
-          {explanation && language && !hasTranslation && (
+          <LanguageSelect value={language} onChange={setLanguage} translatedLanguages={Object.keys(translations)} />
+          {language && !hasTranslation && (
             <button
               type="button"
               className="btn btn-secondary"
@@ -66,11 +50,7 @@ export default function JobExplanationTab({
             </button>
           )}
         </div>
-
-        <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={loading}>
-          {loading ? "Generating..." : explanation ? "Regenerate" : "Generate explanation"}
-        </button>
-      </div>
+      )}
 
       {error && <p className="alert" style={{ marginTop: 12 }}>{error}</p>}
 
@@ -163,7 +143,7 @@ export default function JobExplanationTab({
         </div>
       )}
 
-      {!explanation && !loading && <p className="muted">Generate an explanation to see it here.</p>}
+      {!explanation && <p className="muted">Click Generate on the left to see this here.</p>}
     </div>
   );
 }

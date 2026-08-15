@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import JobExplanationTab from "../components/JobExplanationTab";
 import TypicalDayTab from "../components/TypicalDayTab";
-import { useChatScope } from "../context/ChatContext";
 import {
   createJobDescription,
   generateFullAnalysis,
@@ -13,7 +12,6 @@ import {
 type Tab = "explanation" | "typical_day";
 
 export default function JobUnderstanding() {
-  const { setScope } = useChatScope();
   const [tab, setTab] = useState<Tab>("explanation");
 
   const [jdText, setJdText] = useState("");
@@ -26,10 +24,6 @@ export default function JobUnderstanding() {
   const [typicalDayTranslations, setTypicalDayTranslations] = useState<Record<string, TypicalDay>>({});
 
   const [generating, setGenerating] = useState(false);
-
-  useEffect(() => {
-    setScope({ jobId: jobDescription?.id });
-  }, [jobDescription, setScope]);
 
   const handleGenerate = async () => {
     if (!jdText.trim()) return;

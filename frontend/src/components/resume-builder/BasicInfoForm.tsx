@@ -29,16 +29,6 @@ export default function BasicInfoForm({
         <label>Full name</label>
         <input className="input" value={basicInfo.full_name} onChange={(e) => set("full_name", e.target.value)} />
       </div>
-      <div className="form-row">
-        <div className="field" style={{ flex: 1 }}>
-          <label>Age</label>
-          <input className="input" value={basicInfo.age ?? ""} onChange={(e) => set("age", e.target.value)} />
-        </div>
-        <div className="field" style={{ flex: 1 }}>
-          <label>Gender</label>
-          <input className="input" value={basicInfo.gender ?? ""} onChange={(e) => set("gender", e.target.value)} />
-        </div>
-      </div>
       <div className="field">
         <label>Location</label>
         <input

@@ -1,5 +1,5 @@
 from app.agents._llm import get_llm
-from app.models.job import JobExplanation
+from app.models.job_model import JobExplanation
 
 PROMPT = """You are the Job Explanation Agent for CareerPilot.
 

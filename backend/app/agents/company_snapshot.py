@@ -1,5 +1,5 @@
 from app.agents._llm import get_llm
-from app.models.application import CompanySnapshot
+from app.models.application_model import CompanySnapshot
 
 PROMPT = """You are the Company Snapshot Agent for CareerPilot.
 

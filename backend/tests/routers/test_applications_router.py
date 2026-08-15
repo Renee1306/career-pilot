@@ -85,16 +85,53 @@ def test_generate_interview_questions_rejects_unknown_round_type(client, auth_ov
     assert response.status_code == 422
 
 
-def test_generate_interview_questions_passes_jd_text_through(client, auth_override):
+def test_generate_interview_questions_passes_grounding_through(client, auth_override):
     with patch(
         "app.services.application_service.generate_interview_questions", return_value=APPLICATION
     ) as mock_generate:
         response = client.post(
             "/applications/app-1/interview-questions",
-            json={"round_type": "hr", "jd_text": "We need a backend engineer."},
+            json={
+                "round_type": "behavioural",
+                "jd_text": "We need a backend engineer.",
+                "resume_document_id": "doc-1",
+            },
         )
     assert response.status_code == 200
-    assert mock_generate.call_args.args[2:] == ("app-1", "hr", "We need a backend engineer.")
+    assert mock_generate.call_args.args[2:] == (
+        "app-1",
+        "behavioural",
+        "We need a backend engineer.",
+        "doc-1",
+    )
+
+
+def test_generate_interview_questions_allows_hiring_manager_round(client, auth_override):
+    with patch(
+        "app.services.application_service.generate_interview_questions", return_value=APPLICATION
+    ):
+        response = client.post(
+            "/applications/app-1/interview-questions", json={"round_type": "hiring_manager"}
+        )
+    assert response.status_code == 200
+
+
+def test_generate_interview_questions_rejects_retired_round_types(client, auth_override):
+    # "hr"/"technical" still validate on rows saved before the rounds were renamed, but nothing
+    # may generate them any more.
+    for retired in ("hr", "technical"):
+        response = client.post(
+            "/applications/app-1/interview-questions", json={"round_type": retired}
+        )
+        assert response.status_code == 422
+
+
+def test_generate_interview_questions_defaults_resume_document_to_none(client, auth_override):
+    with patch(
+        "app.services.application_service.generate_interview_questions", return_value=APPLICATION
+    ) as mock_generate:
+        client.post("/applications/app-1/interview-questions", json={"round_type": "behavioural"})
+    assert mock_generate.call_args.args[5] is None
 
 
 def test_create_timeline_entry(client, auth_override):

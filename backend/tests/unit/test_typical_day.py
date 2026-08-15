@@ -4,7 +4,7 @@ Per the "mock the agent boundary, test everything around it" scope, generate_typ
 (the actual Gemini call) is left to real E2E verification, same as before."""
 
 from app.agents.typical_day import _normalize_time_allocation
-from app.models.job import (
+from app.models.job_model import (
     Collaborator,
     DayBreakdown,
     DayPeriod,

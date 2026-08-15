@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 from supabase import Client
 
 from app.agents import company_snapshot as company_snapshot_agent
-from app.agents import interview_qna
-from app.models.application import ApplicationCreate, ApplicationUpdate, TimelineEntryCreate, TimelineEntryUpdate
-from app.services import job_service, resume_service
+from app.agents import interview_qna, jd_coach
+from app.models.application_model import ApplicationCreate, ApplicationUpdate, TimelineEntryCreate, TimelineEntryUpdate
+from app.services import job_service, resume_document_service, resume_service
 
 TABLE = "applications"
 TIMELINE_TABLE = "application_timeline_entries"
@@ -198,12 +198,46 @@ def generate_company_snapshot(client: Client, user_id: str, application_id: str)
     return set_company_snapshot(client, user_id, application_id, snapshot.model_dump())
 
 
+def _format_company_snapshot(snapshot: dict | None) -> str:
+    """Flatten a stored company snapshot into prose for the behavioural round's prompt.
+
+    Written generically over whatever keys the snapshot happens to carry rather than against a
+    fixed field list, so a change to the snapshot agent's schema widens what the interview prep
+    knows about instead of silently dropping it.
+    """
+    if not snapshot:
+        return ""
+    lines: list[str] = []
+    for key, value in snapshot.items():
+        if not value:
+            continue
+        label = key.replace("_", " ").capitalize()
+        if isinstance(value, list):
+            rendered = "; ".join(str(v) for v in value if v)
+        elif isinstance(value, dict):
+            continue
+        else:
+            rendered = str(value)
+        if rendered.strip():
+            lines.append(f"{label}: {rendered}")
+    return "\n".join(lines)
+
+
 def generate_interview_questions(
-    client: Client, user_id: str, application_id: str, round_type: str, jd_text: str | None
+    client: Client,
+    user_id: str,
+    application_id: str,
+    round_type: str,
+    jd_text: str | None,
+    resume_document_id: str | None = None,
 ) -> dict | None:
     """Grounded in whatever JD text is available: the pasted `jd_text` wins, otherwise the
     application's linked job description. Falls back to company/position alone if neither exists,
-    so an application created by Gmail sync (which never gets a linked JD) still works."""
+    so an application created by Gmail sync (which never gets a linked JD) still works.
+
+    Resume grounding prefers an explicitly chosen Resume Builder document - that is the resume the
+    candidate is actually sending - and falls back to the uploaded file linked to the application.
+    """
     application = get_application(client, user_id, application_id)
     if application is None:
         return None
@@ -219,12 +253,21 @@ def generate_interview_questions(
         job_text = f"Role: {position} at {company}. No full job description was provided."
 
     resume_text = ""
-    if application.get("resume_id"):
+    if resume_document_id:
+        doc = resume_document_service.get_resume_document(client, user_id, resume_document_id)
+        if doc:
+            resume_text = jd_coach.flatten_resume_content(doc["content"])
+    if not resume_text and application.get("resume_id"):
         resume = resume_service.get_resume(client, user_id, application["resume_id"])
         if resume:
             resume_text = resume.get("parsed_text") or ""
 
-    qna = interview_qna.generate_interview_qna(job_text, resume_text, round_type)
+    qna = interview_qna.generate_interview_qna(
+        job_text,
+        resume_text,
+        round_type,
+        company_context=_format_company_snapshot(application.get("company_snapshot")),
+    )
     merged = {**(application.get("interview_questions") or {}), round_type: qna.model_dump()}
     res = (
         client.table(TABLE)

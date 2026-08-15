@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from app.agents._llm import get_llm
-from app.models.resume_document import (
+from app.models.resume_document_model import (
     AwardEntry,
     BasicInfo,
     CertificateEntry,
@@ -13,6 +13,7 @@ from app.models.resume_document import (
     LanguageEntry,
     ProjectEntry,
     ResumeContent,
+    SkillGroup,
     SkillsSection,
     SummarySection,
     VolunteerEntry,
@@ -31,7 +32,11 @@ EXTRACTION_PROMPT = (
     "rendered by the app. Only join text into a single line when the original genuinely is one "
     "continuous sentence or paragraph, not a list.\n\n"
     "Put each distinct role under work_experience (most recent first, matching the document's "
-    "own order), and only put genuinely separate personal/side projects under projects."
+    "own order), and only put genuinely separate personal/side projects under projects.\n\n"
+    "For skills, keep whatever grouping the resume itself uses: a line like 'Programming "
+    "Languages: Python, C, Java' becomes one group with category 'Programming Languages' and "
+    "those three items. If the resume just lists skills with no headings, return a single group "
+    "with an empty category holding all of them - do not invent categories it does not use."
 )
 
 FLUENCY_VALUES = {"basic", "conversational", "fluent", "native"}
@@ -88,6 +93,11 @@ class _Volunteer(BaseModel):
     description: str = ""
 
 
+class _SkillGroup(BaseModel):
+    category: str = ""
+    items: list[str] = Field(default_factory=list)
+
+
 class ImportedResume(BaseModel):
     full_name: str = ""
     email: str | None = None
@@ -97,7 +107,7 @@ class ImportedResume(BaseModel):
     work_experience: list[_Work] = Field(default_factory=list)
     education: list[_Education] = Field(default_factory=list)
     projects: list[_Project] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
+    skills: list[_SkillGroup] = Field(default_factory=list)
     certificates: list[_Certificate] = Field(default_factory=list)
     awards: list[_Award] = Field(default_factory=list)
     languages: list[_Language] = Field(default_factory=list)
@@ -149,7 +159,13 @@ def to_resume_content(parsed: ImportedResume) -> ResumeContent:
             ProjectEntry(id=_new_id(), name=p.name, period=p.period, description=p.description)
             for p in parsed.projects
         ],
-        skills=SkillsSection(items=parsed.skills),
+        skills=SkillsSection(
+            groups=[
+                SkillGroup(id=_new_id(), category=group.category.strip(), items=group.items)
+                for group in parsed.skills
+                if group.items
+            ]
+        ),
         certificates=[CertificateEntry(id=_new_id(), name=c.name, date=c.date) for c in parsed.certificates],
         awards=[
             AwardEntry(id=_new_id(), title=a.title, awarder=a.awarder, date=a.date, description=a.description)
@@ -180,7 +196,7 @@ def to_resume_content(parsed: ImportedResume) -> ResumeContent:
         "work_experience": bool(content.work_experience),
         "education": bool(content.education),
         "projects": bool(content.projects),
-        "skills": bool(content.skills.items),
+        "skills": bool(content.skills.groups),
         "certificates": bool(content.certificates),
         "awards": bool(content.awards),
         "languages": bool(content.languages),

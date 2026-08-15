@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.middleware.auth import AuthedUser, get_current_user
-from app.models.application import (
+from app.models.application_model import (
     ApplicationCreate,
     ApplicationOut,
     ApplicationUpdate,
@@ -64,7 +64,12 @@ def generate_interview_questions(
     user: AuthedUser = Depends(get_current_user),
 ):
     updated = application_service.generate_interview_questions(
-        user.client, user.id, application_id, payload.round_type, payload.jd_text
+        user.client,
+        user.id,
+        application_id,
+        payload.round_type,
+        payload.jd_text,
+        payload.resume_document_id,
     )
     if updated is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Application not found")

@@ -10,5 +10,9 @@ langchain==1.3.14
 langchain-google-genai==4.3.3
 langchain-openai==1.4.3
 httpx==0.28.1
+# zoneinfo reads the *system* tz database, which Windows does not ship at all and slim Linux
+# images often omit. Gmail sync resolves the user's IANA zone to place naive interview times
+# (see gmail_service._parse_iso), so the tz data has to be a real dependency, not an assumption.
+tzdata==2024.2
 pytest==8.3.4
 pytest-asyncio==0.25.2

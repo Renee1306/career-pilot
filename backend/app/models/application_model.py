@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.interview_model import QnARoundType
+
 ApplicationStatus = Literal["applied", "pending_interview", "offer", "rejected"]
 TimelineEntryType = Literal["applied", "rejected", "interview", "case_study", "note"]
 
@@ -55,11 +57,16 @@ class CompanySnapshot(BaseModel):
 
 
 class InterviewQuestionsRequest(BaseModel):
-    round_type: Literal["hr", "technical"]
+    round_type: QnARoundType
     jd_text: str | None = Field(
         default=None,
         description="JD to ground the questions in. Optional: falls back to the application's "
         "linked job description when it has one.",
+    )
+    resume_document_id: str | None = Field(
+        default=None,
+        description="Resume Builder document to ground the questions in. Optional: falls back to "
+        "the uploaded resume linked to the application.",
     )
 
 

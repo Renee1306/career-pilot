@@ -795,6 +795,37 @@ mark.highlight {
   text-align: center;
 }
 
+/* Placeholder cards shown while the board is loading. Sized like a real card so the columns
+   don't visibly jump when the data lands. */
+.board-card-skeleton {
+  height: 84px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  opacity: 0.55;
+  animation: board-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.board-card-skeleton + .board-card-skeleton {
+  animation-delay: 0.2s;
+}
+
+@keyframes board-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-card-skeleton {
+    animation: none;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    9. Misc primitives
    --------------------------------------------------------------------------- */
@@ -2314,103 +2345,6 @@ a.list-row-title:hover {
 }
 
 /* ---------------------------------------------------------------------------
-   13. Chatbot
-   --------------------------------------------------------------------------- */
-
-.chat-fab {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  border: none;
-  background: var(--color-primary);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 10px 26px rgba(242, 104, 28, 0.4);
-  cursor: pointer;
-  z-index: 40;
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-
-.chat-fab:hover {
-  background: var(--color-primary-hover);
-  transform: translateY(-2px);
-}
-
-.chat-panel {
-  position: fixed;
-  right: 24px;
-  bottom: 90px;
-  width: 350px;
-  height: 470px;
-  max-width: calc(100vw - 32px);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lift);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 40;
-}
-
-.chat-panel-header {
-  padding: 14px 16px 12px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-sunken);
-}
-
-.chat-panel-messages {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.chat-message-user,
-.chat-message-assistant {
-  max-width: 85%;
-  padding: 9px 13px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
-.chat-message-user {
-  align-self: flex-end;
-  background: var(--color-primary);
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-
-.chat-message-assistant {
-  align-self: flex-start;
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  border-bottom-left-radius: 4px;
-}
-
-.chat-panel-input {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--color-border);
-}
-
-.chat-panel-input .input {
-  flex: 1;
-}
-
-/* ---------------------------------------------------------------------------
    14. Language combobox
    --------------------------------------------------------------------------- */
 
@@ -2835,15 +2769,101 @@ a.list-row-title:hover {
   border-radius: var(--radius-lg);
 }
 
-.builder-style-panel {
-  width: 280px;
+/* The right rail hosts both the style controls and the JD coach as tabs, and collapses out of
+   the way entirely - the coach conversation wants more room than a sidebar strip, and the
+   preview is what the user is actually reading while they work. */
+.builder-rail {
+  width: 320px;
   flex-shrink: 0;
-  overflow-y: auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.builder-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+
+.builder-rail-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.builder-rail-tab {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.builder-rail-tab:hover {
+  color: var(--color-text);
+}
+
+.builder-rail-tab.is-active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card);
+}
+
+.builder-rail-count {
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+}
+
+.builder-rail-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The collapsed rail leaves behind a thin tab rather than disappearing outright, so the panel
+   (and the count of still-pending suggestions) stays discoverable. */
+.builder-rail-reopen {
+  flex-shrink: 0;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.builder-rail-reopen:hover {
+  color: var(--color-text);
+}
+
+.builder-style-panel {
   padding: 16px;
 }
 
@@ -2853,7 +2873,7 @@ a.list-row-title:hover {
     flex: none;
   }
   .builder-sections,
-  .builder-style-panel {
+  .builder-rail {
     width: 100%;
   }
   .builder-preview-pane {
@@ -3058,20 +3078,301 @@ a.list-row-title:hover {
   align-items: flex-start;
 }
 
+/* Holds the stack of on-screen page sheets and the scale transform (see ResumePreview.tsx) -
+   transform-origin: top center so shrinking the stack keeps every sheet's top edge, and the
+   gaps between sheets, aligned with the height reserved by .resume-page-container. */
+.resume-page-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform-origin: top center;
+}
+
+/* One physical A4 sheet in the on-screen preview - always full height, so a page that ends
+   early on a section boundary still looks like a real sheet with white space at the bottom. */
+.resume-page-sheet {
+  width: 794px;
+  height: 1123px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-card-hover);
+  background: #fff;
+}
+
+/* The clip window for this page's slice of the document. Its height is set inline to the exact
+   distance between this page's break points, which is what stops content that belongs to the
+   next page from also showing at the bottom of this one. The content itself (.resume-page) is
+   one continuous element shifted up via negative margin-top, never re-flowed per page, so text
+   stays pixel-identical across a break. */
+.resume-page-window {
+  overflow: hidden;
+}
+
 .resume-page {
   background: #fff;
   width: 794px;
-  /* A4 at 96dpi is 794x1123px. The width alone used to be the only A4-accurate dimension, so a
-     short resume rendered as a stub of a page that looked nothing like the exported sheet - the
-     preview now always shows a full A4 page and grows past it only when content genuinely
-     overflows onto a second one. print.css deliberately resets this back to 0 (see the note
-     there): forcing a full-page min-height during printing rounds up and emits a trailing blank
-     page. */
-  min-height: 1123px;
-  flex-shrink: 0;
-  transform-origin: top center;
-  box-shadow: var(--shadow-card-hover);
-  color: var(--resume-text, #211f26);
+  color: var(--resume-body-color, #211f26);
   font-family: var(--resume-font-family, var(--font-sans));
   line-height: var(--resume-line-height, 1.5);
+}
+
+/* ---------------------------------------------------------------------------
+   22a. Interview prep Q&A
+   --------------------------------------------------------------------------- */
+
+.qna-list {
+  margin: 14px 0 0;
+  padding-left: 20px;
+}
+
+.qna-list > li {
+  margin-bottom: 18px;
+}
+
+.qna-question {
+  font-weight: 700;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.qna-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.qna-cover {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.qna-cover li {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-bottom: 3px;
+}
+
+.qna-draw-on {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+}
+
+/* ---------------------------------------------------------------------------
+   22. JD coach: panel, gap conversation, and inline preview hints
+   --------------------------------------------------------------------------- */
+
+.jdc-panel {
+  padding: 16px;
+}
+
+.jdc-intro {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  margin: 0 0 10px;
+}
+
+.jdc-alert {
+  margin-bottom: 12px;
+}
+
+.jdc-empty {
+  font-size: 12.5px;
+  margin: 0 0 4px;
+}
+
+.jdc-score-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.jdc-score {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.jdc-list {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.jdc-list li {
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-bottom: 5px;
+}
+
+.jdc-hint-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  background: var(--color-surface-sunken);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin: 10px 0 0;
+}
+
+.jdc-gap-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.jdc-badge-ok {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.jdc-gap-detail {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  margin: 4px 0 10px;
+}
+
+.jdc-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+.jdc-msg-user,
+.jdc-msg-bot {
+  max-width: 90%;
+  padding: 8px 11px;
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.jdc-msg-user {
+  align-self: flex-end;
+  background: var(--color-primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.jdc-msg-bot {
+  align-self: flex-start;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-bottom-left-radius: 4px;
+}
+
+.jdc-msg-typing {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.jdc-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jdc-composer .btn {
+  align-self: flex-end;
+}
+
+/* Inline hints on the preview. These sit inside the rendered resume, so they must not shift the
+   text they mark: background + underline only, no padding or border that would change how the
+   line wraps and therefore where the page breaks land. */
+.resume-hint {
+  background: rgba(242, 104, 28, 0.16);
+  color: inherit;
+  border-radius: 2px;
+  box-shadow: inset 0 -1px 0 rgba(242, 104, 28, 0.75);
+  cursor: pointer;
+}
+
+.resume-hint:hover {
+  background: rgba(242, 104, 28, 0.28);
+}
+
+.resume-hint-active {
+  background: rgba(242, 104, 28, 0.36);
+}
+
+/* A line proposed but not yet accepted - dashed and dimmed so it never reads as part of the
+   resume, and dropped entirely from the print output (see print.css). */
+.resume-hint-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  box-shadow: none;
+  border-bottom: 1px dashed var(--color-primary);
+}
+
+.resume-hint-ghost:hover {
+  background: rgba(242, 104, 28, 0.12);
+}
+
+.resume-hint-ghost-row {
+  list-style-type: circle;
+}
+
+.hint-popover {
+  position: fixed;
+  z-index: 60;
+  width: 320px;
+  max-width: calc(100vw - 16px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lift);
+  padding: 12px 14px;
+}
+
+.hint-popover-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.hint-popover-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.hint-popover-label:empty {
+  display: none;
+}
+
+.hint-popover-before {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  margin-bottom: 8px;
+}
+
+.hint-popover-after {
+  font-size: 12.5px;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.hint-popover-reason {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
 }

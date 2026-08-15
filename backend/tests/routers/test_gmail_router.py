@@ -55,7 +55,7 @@ def test_callback_success_redirects_with_connected_flag(client, monkeypatch):
         "app.services.gmail_service.save_connection",
         lambda client, user_id, email, refresh_token: save_calls.append((user_id, email, refresh_token)),
     )
-    monkeypatch.setattr("app.routers.gmail.get_service_client", lambda: object())
+    monkeypatch.setattr("app.routers.gmail_router.get_service_client", lambda: object())
 
     response = client.get(
         "/gmail/callback", params={"code": "auth-code", "state": "user-1.sig"}, follow_redirects=False

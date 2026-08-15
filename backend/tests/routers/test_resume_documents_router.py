@@ -134,36 +134,57 @@ def test_remove_photo_not_found(client, auth_override):
     assert response.status_code == 404
 
 
-def test_evaluate_jd_match_not_found(client, auth_override):
-    with patch("app.services.resume_document_service.evaluate_jd_match", return_value=None):
-        response = client.post("/resume-documents/missing/jd-match", json={"jd_text": "..."})
+def test_review_jd_match_not_found(client, auth_override):
+    with patch("app.services.resume_document_service.review_jd_match", return_value=None):
+        response = client.post("/resume-documents/missing/jd-review", json={"jd_text": "..."})
     assert response.status_code == 404
 
 
-def test_evaluate_jd_match_requires_jd_text(client, auth_override):
-    response = client.post("/resume-documents/doc-1/jd-match", json={})
+def test_review_jd_match_requires_jd_text(client, auth_override):
+    response = client.post("/resume-documents/doc-1/jd-review", json={})
     assert response.status_code == 422
 
 
-def test_evaluate_jd_match_success(client, auth_override):
-    evaluation = {"match_score": 72, "strengths": ["Python"], "gaps": ["AWS"]}
-    with patch("app.services.resume_document_service.evaluate_jd_match", return_value=evaluation):
-        response = client.post("/resume-documents/doc-1/jd-match", json={"jd_text": "Needs Python and AWS."})
+def test_review_jd_match_success(client, auth_override):
+    review = {
+        "match_score": 72,
+        "strengths": ["Ships Python services"],
+        "gaps": [{"id": "g1", "title": "AWS", "detail": "The JD wants AWS; the resume never names it."}],
+        "hints": [],
+    }
+    with patch("app.services.resume_document_service.review_jd_match", return_value=review):
+        response = client.post("/resume-documents/doc-1/jd-review", json={"jd_text": "Needs Python and AWS."})
     assert response.status_code == 200
-    assert response.json()["match_score"] == 72
+    body = response.json()
+    assert body["match_score"] == 72
+    assert body["gaps"][0]["title"] == "AWS"
 
 
-def test_suggest_jd_edits(client, auth_override):
-    suggestions = {"suggestions": []}
-    with patch("app.services.resume_document_service.suggest_jd_edits", return_value=suggestions):
-        response = client.post("/resume-documents/doc-1/jd-suggest", json={"jd_text": "..."})
-    assert response.status_code == 200
+GAP_TURN_PAYLOAD = {
+    "jd_text": "Needs AWS.",
+    "gap": {"id": "g1", "title": "AWS", "detail": "Never mentioned."},
+    "strengths": ["Ships Python services"],
+    "history": [],
+}
 
 
-def test_customize_for_jd_not_found(client, auth_override):
-    with patch("app.services.resume_document_service.customize_for_jd", return_value=None):
-        response = client.post("/resume-documents/missing/jd-customize", json={"jd_text": "..."})
+def test_gap_turn_not_found(client, auth_override):
+    with patch("app.services.resume_document_service.run_gap_turn", return_value=None):
+        response = client.post("/resume-documents/missing/jd-gap-turn", json=GAP_TURN_PAYLOAD)
     assert response.status_code == 404
+
+
+def test_gap_turn_returns_next_question(client, auth_override):
+    turn = {"status": "asking", "message": "Have you worked with AWS?", "hints": []}
+    with patch("app.services.resume_document_service.run_gap_turn", return_value=turn):
+        response = client.post("/resume-documents/doc-1/jd-gap-turn", json=GAP_TURN_PAYLOAD)
+    assert response.status_code == 200
+    assert response.json()["status"] == "asking"
+
+
+def test_gap_turn_requires_a_gap(client, auth_override):
+    response = client.post("/resume-documents/doc-1/jd-gap-turn", json={"jd_text": "..."})
+    assert response.status_code == 422
 
 
 def test_endpoints_require_auth(client):

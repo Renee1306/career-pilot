@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import ApplicationTimeline from "../components/ApplicationTimeline";
 import CompanySnapshotCard from "../components/CompanySnapshotCard";
 import InterviewQuestionsCard from "../components/InterviewQuestionsCard";
@@ -77,11 +77,33 @@ export default function ApplicationDetail() {
     }
   };
 
-  if (error) return <p className="alert">{error}</p>;
-  if (!application) return <p className="muted">Loading...</p>;
+  // The back link stays available while the application is still loading or has failed to load -
+  // a dead end with no way out is exactly when you most want it.
+  const backLink = (
+    <Link to="/applications" className="btn btn-ghost btn-sm" style={{ marginBottom: 16 }}>
+      ← Applications
+    </Link>
+  );
+
+  if (error)
+    return (
+      <div>
+        {backLink}
+        <p className="alert">{error}</p>
+      </div>
+    );
+
+  if (!application)
+    return (
+      <div>
+        {backLink}
+        <div className="spinner spinner-page" role="status" aria-label="Loading application" />
+      </div>
+    );
 
   return (
     <div>
+      {backLink}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="form-row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
           <div className="form-row" style={{ alignItems: "center", gap: 16 }}>

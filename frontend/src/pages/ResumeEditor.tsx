@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import JDCoachPanel from "../components/resume-builder/JDCoachPanel";
 import ResumePreview from "../components/resume-builder/ResumePreview";
 import SectionList from "../components/resume-builder/SectionList";
 import StylePanel from "../components/resume-builder/StylePanel";
 import TemplatePickerModal from "../components/resume-builder/TemplatePickerModal";
 import {
+  applyResumeHint,
   enhanceResumeText,
   getResumeDocument,
   updateResumeDocument,
   type ResumeContent,
+  type ResumeHint,
   type ResumeStyle,
 } from "../lib/api";
 
@@ -27,6 +30,11 @@ export default function ResumeEditor() {
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [rail, setRail] = useState<"style" | "coach">("style");
+  const [railOpen, setRailOpen] = useState(true);
+  // Pending JD suggestions. These live only for the session and are deliberately NOT part of the
+  // saved document - a hint is an offer, and the resume only changes when one is accepted.
+  const [hints, setHints] = useState<ResumeHint[]>([]);
 
   const loadedRef = useRef(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,6 +87,13 @@ export default function ResumeEditor() {
 
   const handleEnhance = (text: string, context?: string) =>
     enhanceResumeText({ text, context }).then((res) => res.text);
+
+  const dismissHint = (hint: ResumeHint) => setHints((prev) => prev.filter((h) => h.id !== hint.id));
+
+  const acceptHint = (hint: ResumeHint) => {
+    setState((prev) => (prev ? { ...prev, content: applyResumeHint(prev.content, hint) } : prev));
+    dismissHint(hint);
+  };
 
   if (error) {
     return (
@@ -138,9 +153,62 @@ export default function ResumeEditor() {
             content={state.content}
             style={state.style}
             photoUrl={state.photo_url}
+            hints={hints}
+            onAcceptHint={acceptHint}
+            onDismissHint={dismissHint}
           />
         </div>
-        <StylePanel style={state.style} onChange={(style) => setState({ ...state, style })} />
+
+        {railOpen ? (
+          <div className="builder-rail">
+            <div className="builder-rail-head">
+              <div className="builder-rail-tabs">
+                <button
+                  type="button"
+                  className={`builder-rail-tab${rail === "style" ? " is-active" : ""}`}
+                  onClick={() => setRail("style")}
+                >
+                  Style
+                </button>
+                <button
+                  type="button"
+                  className={`builder-rail-tab${rail === "coach" ? " is-active" : ""}`}
+                  onClick={() => setRail("coach")}
+                >
+                  Tailor to JD
+                  {hints.length > 0 && <span className="builder-rail-count">{hints.length}</span>}
+                </button>
+              </div>
+              <button
+                type="button"
+                className="builder-reorder-btn"
+                title="Hide panel"
+                aria-label="Hide panel"
+                onClick={() => setRailOpen(false)}
+              >
+                ›
+              </button>
+            </div>
+
+            <div className="builder-rail-body">
+              {rail === "style" ? (
+                <StylePanel style={state.style} onChange={(style) => setState({ ...state, style })} />
+              ) : (
+                <JDCoachPanel documentId={documentId} hints={hints} onHintsChange={setHints} />
+              )}
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="builder-rail-reopen"
+            title="Show panel"
+            aria-label="Show panel"
+            onClick={() => setRailOpen(true)}
+          >
+            ‹{hints.length > 0 && <span className="builder-rail-count">{hints.length}</span>}
+          </button>
+        )}
       </div>
 
       {templatePickerOpen && (

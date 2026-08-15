@@ -2,7 +2,7 @@ from langchain_core.runnables import RunnableLambda, RunnableParallel
 
 from app.agents.job_explainer import explain_job
 from app.agents.typical_day import generate_typical_day
-from app.models.job import JobExplanation, TypicalDay
+from app.models.job_model import JobExplanation, TypicalDay
 
 
 class FullAnalysis:
@@ -21,7 +21,7 @@ def run_full_analysis(job_text: str) -> FullAnalysis:
     the Job Analysis page's Resume Match tab, its agent, its endpoint and its
     job_analyses columns were all removed; JD-based matching now lives only in
     Resume Builder, against the builder's structured document, via
-    app/agents/resume_customizer.py."""
+    app/agents/jd_coach.py."""
     parallel = RunnableParallel(
         explanation=RunnableLambda(lambda _: explain_job(job_text)),
         typical_day=RunnableLambda(lambda _: generate_typical_day(job_text)),

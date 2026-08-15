@@ -1,9 +1,7 @@
 import { Suspense, lazy } from "react";
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
-import Chatbot from "./components/Chatbot";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Topbar from "./components/Topbar";
-import { ChatScopeProvider } from "./context/ChatContext";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import "./App.css";
@@ -19,8 +17,8 @@ const ResumeLibrary = lazy(() => import("./pages/ResumeLibrary"));
 const ResumeEditor = lazy(() => import("./pages/ResumeEditor"));
 
 /** The signed-in product shell. A layout route rather than a per-page wrapper, so the
- *  top nav and the chatbot mount once and survive navigation between product pages -
- *  the public Landing/Login routes sit outside it and render their own chrome. */
+ *  top nav mounts once and survives navigation between product pages - the public
+ *  Landing/Login routes sit outside it and render their own chrome. */
 function AppChrome() {
   return (
     <ProtectedRoute>
@@ -31,7 +29,6 @@ function AppChrome() {
             <Outlet />
           </Suspense>
         </main>
-        <Chatbot />
       </div>
     </ProtectedRoute>
   );
@@ -39,23 +36,21 @@ function AppChrome() {
 
 function App() {
   return (
-    <ChatScopeProvider>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
 
-        <Route element={<AppChrome />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/job-analysis" element={<JobUnderstanding />} />
-          <Route path="/applications" element={<Applications />} />
-          <Route path="/applications/:applicationId" element={<ApplicationDetail />} />
-          <Route path="/resume-builder" element={<ResumeLibrary />} />
-          <Route path="/resume-builder/:documentId" element={<ResumeEditor />} />
-        </Route>
+      <Route element={<AppChrome />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/job-analysis" element={<JobUnderstanding />} />
+        <Route path="/applications" element={<Applications />} />
+        <Route path="/applications/:applicationId" element={<ApplicationDetail />} />
+        <Route path="/resume-builder" element={<ResumeLibrary />} />
+        <Route path="/resume-builder/:documentId" element={<ResumeEditor />} />
+      </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </ChatScopeProvider>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

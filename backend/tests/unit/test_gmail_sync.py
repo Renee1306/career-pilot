@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.models.gmail import EmailClassification
+from app.models.gmail_model import EmailClassification
 from app.services import gmail_service
 
 

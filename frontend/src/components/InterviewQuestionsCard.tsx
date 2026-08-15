@@ -2,14 +2,23 @@ import { useEffect, useState } from "react";
 import {
   generateInterviewQuestions,
   listJobDescriptions,
+  listResumeDocuments,
   type ApplicationOut,
   type InterviewRoundType,
   type JobDescriptionOut,
+  type ResumeDocumentListItem,
 } from "../lib/api";
 
 const ROUND_LABELS: Record<InterviewRoundType, string> = {
-  hr: "HR / recruiter screen",
-  technical: "Technical round",
+  behavioural: "Behavioural",
+  hiring_manager: "Hiring manager",
+};
+
+const ROUND_BLURBS: Record<InterviewRoundType, string> = {
+  behavioural:
+    "How you've worked with people and handled real situations, tuned to what this company seems to value.",
+  hiring_manager:
+    "Whether you can do this specific job — your past work, the decisions you made, and how it maps to the role.",
 };
 
 /** Job Analysis only ever saves `raw_text` - `title`/`company` are almost always null in
@@ -39,13 +48,22 @@ export default function InterviewQuestionsCard({
   const [jdText, setJdText] = useState(job?.raw_text ?? "");
   const [savedJobs, setSavedJobs] = useState<JobDescriptionOut[]>([]);
   const [selectedJobId, setSelectedJobId] = useState(job?.id ?? "");
-  const [round, setRound] = useState<InterviewRoundType>("hr");
+  const [resumeDocs, setResumeDocs] = useState<ResumeDocumentListItem[]>([]);
+  const [resumeDocId, setResumeDocId] = useState("");
+  const [round, setRound] = useState<InterviewRoundType>("behavioural");
   const [loading, setLoading] = useState<InterviewRoundType | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     listJobDescriptions()
       .then(setSavedJobs)
+      .catch(() => {});
+    listResumeDocuments()
+      .then((docs) => {
+        setResumeDocs(docs);
+        // Most people keep one resume; preselecting it means the common path is just "Generate".
+        if (docs.length === 1) setResumeDocId(docs[0].id);
+      })
       .catch(() => {});
   }, []);
 
@@ -65,7 +83,7 @@ export default function InterviewQuestionsCard({
     setError(null);
     setRound(roundType);
     try {
-      onUpdated(await generateInterviewQuestions(application.id, roundType, jdText));
+      onUpdated(await generateInterviewQuestions(application.id, roundType, jdText, resumeDocId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate interview questions");
     } finally {
@@ -75,6 +93,31 @@ export default function InterviewQuestionsCard({
 
   return (
     <div>
+      {resumeDocs.length > 0 && (
+        <div className="field">
+          <label htmlFor="interview-resume">Resume to prepare from</label>
+          <select
+            id="interview-resume"
+            className="input"
+            value={resumeDocId}
+            onChange={(e) => setResumeDocId(e.target.value)}
+          >
+            <option value="">
+              {application.resume_id ? "Uploaded resume on this application" : "No resume"}
+            </option>
+            {resumeDocs.map((doc) => (
+              <option key={doc.id} value={doc.id}>
+                {doc.name}
+              </option>
+            ))}
+          </select>
+          <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
+            Questions point back at real experience on this resume, so pick the one you actually
+            sent.
+          </p>
+        </div>
+      )}
+
       {savedJobs.length > 0 && (
         <div className="field">
           <label htmlFor="interview-saved-jd">Use a job description from Job Analysis</label>
@@ -109,36 +152,29 @@ export default function InterviewQuestionsCard({
           }}
           placeholder="Paste the job description to ground the questions in the real role..."
         />
-        <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
-          {canGenerate
-            ? "Questions and suggested answers will be grounded in this job description."
-            : "Pick a saved job description or paste one — generating is disabled until there's a job description to ground it in."}
-        </p>
+        {!canGenerate && (
+          <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
+            Pick a saved job description or paste one — generating is disabled until there's a job
+            description to ground it in.
+          </p>
+        )}
       </div>
 
       <div className="form-row" style={{ gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-        <button
-          type="button"
-          className="btn btn-primary btn-sm"
-          onClick={() => handleGenerate("hr")}
-          disabled={loading !== null || !canGenerate}
-          title={canGenerate ? undefined : "Add a job description first"}
-        >
-          {loading === "hr" ? "Generating..." : generated?.hr ? "Regenerate HR questions" : "Generate HR questions"}
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={() => handleGenerate("technical")}
-          disabled={loading !== null || !canGenerate}
-          title={canGenerate ? undefined : "Add a job description first"}
-        >
-          {loading === "technical"
-            ? "Generating..."
-            : generated?.technical
-              ? "Regenerate technical questions"
-              : "Generate technical questions"}
-        </button>
+        {(Object.keys(ROUND_LABELS) as InterviewRoundType[]).map((key, i) => (
+          <button
+            key={key}
+            type="button"
+            className={`btn btn-sm ${i === 0 ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => handleGenerate(key)}
+            disabled={loading !== null || !canGenerate}
+            title={canGenerate ? ROUND_BLURBS[key] : "Add a job description first"}
+          >
+            {loading === key
+              ? "Generating..."
+              : `${generated?.[key] ? "Regenerate" : "Generate"} ${ROUND_LABELS[key].toLowerCase()} round`}
+          </button>
+        ))}
       </div>
 
       {error && (
@@ -147,7 +183,7 @@ export default function InterviewQuestionsCard({
         </p>
       )}
 
-      {generated && (generated.hr || generated.technical) && (
+      {generated && (generated.behavioural || generated.hiring_manager) && (
         <div className="tabs" style={{ marginTop: 18 }}>
           {(Object.keys(ROUND_LABELS) as InterviewRoundType[])
             .filter((key) => generated[key])
@@ -165,22 +201,39 @@ export default function InterviewQuestionsCard({
       )}
 
       {current ? (
-        <ol style={{ marginTop: 16, paddingLeft: 20 }}>
-          {current.questions.map((item, i) => (
-            <li key={i} style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>{item.question}</div>
-              <p className="muted" style={{ fontSize: 13, margin: "4px 0 0" }}>
-                {item.suggested_answer}
-              </p>
-            </li>
-          ))}
-        </ol>
+        <>
+          <p className="muted" style={{ fontSize: 12, margin: "14px 0 0" }}>
+            {ROUND_BLURBS[round]} These aren't scripts — prepare each one in your own words.
+          </p>
+          <ol className="qna-list">
+            {current.questions.map((item, i) => (
+              <li key={i}>
+                <div className="qna-question">{item.question}</div>
+                {item.answer_should_cover.length > 0 && (
+                  <>
+                    <div className="qna-label">Your answer should cover</div>
+                    <ul className="qna-cover">
+                      {item.answer_should_cover.map((point, j) => (
+                        <li key={j}>{point}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                {item.draw_on && (
+                  <p className="qna-draw-on">
+                    <span className="qna-label">Draw on</span> {item.draw_on}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </>
       ) : (
         !loading && (
           <p className="muted" style={{ marginTop: 16, fontSize: 13 }}>
             {generated && Object.keys(generated).length > 0
               ? "Nothing generated for this round yet."
-              : "Generate a set of likely questions with suggested answers, grounded in this role and your resume."}
+              : "Get the questions you're likely to be asked, plus what a strong answer needs to cover — grounded in this role and your resume."}
           </p>
         )
       )}

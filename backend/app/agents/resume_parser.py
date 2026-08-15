@@ -3,7 +3,7 @@ import base64
 from langchain_core.messages import HumanMessage
 
 from app.agents._llm import get_llm
-from app.models.resume import ResumeParsed
+from app.models.resume_model import ResumeParsed
 
 EXTRACTION_PROMPT = (
     "You are given a resume as a file. Extract its contents into the structured "

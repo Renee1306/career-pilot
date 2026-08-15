@@ -2,7 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import applications, chat, gmail, interviews, jobs, resume_documents, resumes
+from app.routers import (
+    applications_router,
+    gmail_router,
+    interviews_router,
+    jobs_router,
+    resume_documents_router,
+    resumes_router,
+)
 
 app = FastAPI(title="CareerPilot API")
 
@@ -14,13 +21,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(resumes.router)
-app.include_router(resume_documents.router)
-app.include_router(jobs.router)
-app.include_router(applications.router)
-app.include_router(interviews.router)
-app.include_router(gmail.router)
-app.include_router(chat.router)
+app.include_router(resumes_router.router)
+app.include_router(resume_documents_router.router)
+app.include_router(jobs_router.router)
+app.include_router(applications_router.router)
+app.include_router(interviews_router.router)
+app.include_router(gmail_router.router)
 
 
 @app.get("/health")

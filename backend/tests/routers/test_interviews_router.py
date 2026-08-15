@@ -28,11 +28,24 @@ def test_list_rounds(client, auth_override):
     assert response.status_code == 200
 
 
-def test_create_round_defaults_round_type_to_hr(client, auth_override):
+def test_create_round_defaults_round_type_to_behavioural(client, auth_override):
     with patch("app.services.interview_service.create_round", return_value=ROUND) as mock_create:
         response = client.post("/interview-rounds", json={"application_id": "app-1"})
     assert response.status_code == 200
-    assert mock_create.call_args.args[2].round_type == "hr"
+    assert mock_create.call_args.args[2].round_type == "behavioural"
+
+
+def test_round_read_still_accepts_legacy_round_types(client, auth_override):
+    # Rounds saved as "hr"/"technical" before the rename must keep loading, or an existing
+    # application's interview tab breaks outright.
+    for legacy in ("hr", "technical"):
+        with patch(
+            "app.services.interview_service.list_rounds_for_application",
+            return_value=[{**ROUND, "round_type": legacy}],
+        ):
+            response = client.get("/interview-rounds", params={"application_id": "app-1"})
+        assert response.status_code == 200
+        assert response.json()[0]["round_type"] == legacy
 
 
 def test_update_round_not_found(client, auth_override):

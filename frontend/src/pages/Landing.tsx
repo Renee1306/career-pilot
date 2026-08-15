@@ -299,7 +299,7 @@ export default function Landing() {
               <h3>Walk in prepared</h3>
               <p>
                 HR and technical question sets grounded in your actual resume, plus a company
-                snapshot and a copilot that already knows the role you are looking at.
+                snapshot and a plain-English breakdown of what the role actually involves.
               </p>
             </article>
           </div>

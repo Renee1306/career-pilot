@@ -3,7 +3,7 @@ import uuid
 from supabase import Client
 
 from app.agents.resume_parser import parse_resume
-from app.models.resume import ResumeCreate
+from app.models.resume_model import ResumeCreate
 
 TABLE = "resumes"
 BUCKET = "resumes"

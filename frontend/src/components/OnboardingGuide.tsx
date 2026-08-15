@@ -20,7 +20,7 @@ const STEPS = [
   {
     icon: <IconChat size={17} />,
     title: "4. Walk in prepared",
-    sub: "Generate interview questions, or ask the copilot chat in the corner anything about the role.",
+    sub: "Generate interview questions and a company snapshot for the role before you go in.",
   },
 ];
 
