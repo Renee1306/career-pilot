@@ -30,10 +30,15 @@ export default function CompanySnapshotCard({
   // alongside InterviewQuestionsCard, so wrapping here would nest a card inside a card.
   return (
     <div>
-      <div className="form-row" style={{ justifyContent: "flex-end", marginBottom: snapshot ? 14 : 0 }}>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={handleGenerate} disabled={loading}>
-          {loading ? "Generating..." : snapshot ? "Regenerate" : "Generate"}
-        </button>
+      <div style={{ marginBottom: snapshot ? 14 : 0 }}>
+        <div className="form-row" style={{ justifyContent: "flex-end" }}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={handleGenerate} disabled={loading}>
+            {loading ? "Generating..." : snapshot ? "Regenerate" : "Generate"}
+          </button>
+        </div>
+        <p className="muted" style={{ fontSize: 11.5, marginTop: 4, textAlign: "right" }}>
+          Usually takes about 10 seconds.
+        </p>
       </div>
 
       {error && (

@@ -2,10 +2,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.middleware.auth import AuthedUser, get_current_user
 from app.models.resume_document_model import (
-    EnhanceTextRequest,
-    EnhanceTextResponse,
     GapTurnRequest,
     GapTurnResponse,
+    GenerateSummaryResponse,
     JDMatchRequest,
     JDReview,
     ResumeDocumentCreate,
@@ -31,11 +30,6 @@ def list_resume_documents(user: AuthedUser = Depends(get_current_user)):
 @router.post("", response_model=ResumeDocumentOut)
 def create_resume_document(payload: ResumeDocumentCreate, user: AuthedUser = Depends(get_current_user)):
     return resume_document_service.create_resume_document(user.client, user.id, payload)
-
-
-@router.post("/enhance-text", response_model=EnhanceTextResponse)
-def enhance_text(payload: EnhanceTextRequest, user: AuthedUser = Depends(get_current_user)):
-    return EnhanceTextResponse(text=resume_document_service.enhance_text(payload.text, payload.context))
 
 
 @router.post("/import", response_model=ResumeDocumentOut)
@@ -114,6 +108,14 @@ def remove_photo(doc_id: str, user: AuthedUser = Depends(get_current_user)):
     if doc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
     return doc
+
+
+@router.post("/{doc_id}/generate-summary", response_model=GenerateSummaryResponse)
+def generate_summary(doc_id: str, user: AuthedUser = Depends(get_current_user)):
+    text = resume_document_service.generate_summary(user.client, user.id, doc_id)
+    if text is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
+    return GenerateSummaryResponse(text=text)
 
 
 @router.post("/{doc_id}/jd-review", response_model=JDReview)

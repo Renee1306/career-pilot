@@ -39,28 +39,6 @@ def test_create_resume_document_uses_defaults(client, auth_override):
     assert payload.template_id == "classic"
 
 
-def test_enhance_text(client, auth_override):
-    with patch("app.services.resume_document_service.enhance_text", return_value="Improved text.") as mock:
-        response = client.post(
-            "/resume-documents/enhance-text", json={"text": "did stuff", "context": "Engineer at Acme"}
-        )
-    assert response.status_code == 200
-    assert response.json() == {"text": "Improved text."}
-    assert mock.call_args.args == ("did stuff", "Engineer at Acme")
-
-
-def test_enhance_text_route_declared_before_doc_id_route(client, auth_override):
-    """`/enhance-text` must be registered before `/{doc_id}` or FastAPI would try to treat
-    "enhance-text" as a doc_id and route it to get_resume_document instead - this is exactly
-    the ordering gotcha PROJECT_CONTEXT.md calls out about this router."""
-    with patch("app.services.resume_document_service.enhance_text", return_value="x"), patch(
-        "app.services.resume_document_service.get_resume_document"
-    ) as mock_get:
-        response = client.post("/resume-documents/enhance-text", json={"text": "hi"})
-    assert response.status_code == 200
-    mock_get.assert_not_called()
-
-
 def test_import_resume_document_rejects_unsupported_type(client, auth_override):
     response = client.post(
         "/resume-documents/import", files={"file": ("resume.txt", b"text", "text/plain")}
@@ -132,6 +110,19 @@ def test_remove_photo_not_found(client, auth_override):
     with patch("app.services.resume_document_service.remove_photo", return_value=None):
         response = client.delete("/resume-documents/missing/photo")
     assert response.status_code == 404
+
+
+def test_generate_summary_not_found(client, auth_override):
+    with patch("app.services.resume_document_service.generate_summary", return_value=None):
+        response = client.post("/resume-documents/missing/generate-summary")
+    assert response.status_code == 404
+
+
+def test_generate_summary_success(client, auth_override):
+    with patch("app.services.resume_document_service.generate_summary", return_value="A drafted summary."):
+        response = client.post("/resume-documents/doc-1/generate-summary")
+    assert response.status_code == 200
+    assert response.json()["text"] == "A drafted summary."
 
 
 def test_review_jd_match_not_found(client, auth_override):

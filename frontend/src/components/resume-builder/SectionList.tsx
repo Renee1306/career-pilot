@@ -32,14 +32,12 @@ export default function SectionList({
   photoUrl,
   onContentChange,
   onPhotoUrlChange,
-  onEnhance,
 }: {
   documentId: string;
   content: ResumeContent;
   photoUrl: string | null;
   onContentChange: (content: ResumeContent) => void;
   onPhotoUrlChange: (url: string | null) => void;
-  onEnhance: (text: string, context?: string) => Promise<string>;
 }) {
   const [expanded, setExpanded] = useState<string | null>("basic_info");
 
@@ -184,16 +182,15 @@ export default function SectionList({
               <div style={{ padding: "0 4px 12px" }}>
                 {key === "summary" && (
                   <SummaryForm
+                    documentId={documentId}
                     text={content.summary.text}
                     onChange={(text) => onContentChange({ ...content, summary: { text } })}
-                    onEnhance={onEnhance}
                   />
                 )}
                 {key === "work_experience" && (
                   <WorkExperienceForm
                     entries={content.work_experience}
                     onChange={(work_experience) => onContentChange({ ...content, work_experience })}
-                    onEnhance={onEnhance}
                   />
                 )}
                 {key === "education" && (

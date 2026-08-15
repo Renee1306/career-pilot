@@ -2674,6 +2674,14 @@ a.list-row-title:hover {
 }
 
 .resume-library-new-card {
+  /* Grid rows stretch to their tallest item, and height:100% follows that - so with no resume
+     cards loaded yet (nothing tall enough to stretch against), these two sit at their own small
+     natural content height, then visibly grow the moment the first resume card (with its 90px
+     thumbnail) joins the row. A fixed min-height matching that already-loaded size means the
+     before/after state is identical instead of jumping on load. 206px = a loaded
+     .resume-library-card's natural height (22px card padding x2 + 90px thumb + 12px thumb margin
+     + ~2 lines of name/date text) - if that content shape changes, remeasure and update this. */
+  min-height: 206px;
   height: 100%;
   cursor: pointer;
   text-align: center;
@@ -3067,6 +3075,14 @@ a.list-row-title:hover {
    the shrunk page actually occupies, and overflow:hidden trims the sub-pixel remainder
    of the page's true 794px-wide layout box that peeks past a narrower container. */
 .resume-page-container {
+  /* Containing block for #resume-print-root (position:absolute, see ResumePreview.tsx).
+     Without this, an absolutely positioned element with no positioned ancestor resolves
+     against the document's initial containing block instead - pinning the hidden print
+     source to the top of the whole page and inflating the *document's* scrollable height
+     by the resume's full content height (well past 1000px for a multi-page resume), with
+     nothing visible rendered in that space. That produced a long empty scroll on the whole
+     Resume Builder page, not just this pane. */
+  position: relative;
   width: 100%;
   overflow: hidden;
   display: flex;
@@ -3120,19 +3136,46 @@ a.list-row-title:hover {
    22a. Interview prep Q&A
    --------------------------------------------------------------------------- */
 
+/* Each question is its own card (rather than a bare numbered list) so a long round of 5-10
+   questions reads as distinct, scannable chunks instead of one dense wall of text. */
 .qna-list {
-  margin: 14px 0 0;
-  padding-left: 20px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.qna-list > li {
-  margin-bottom: 18px;
+.qna-card {
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
 }
 
 .qna-question {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   font-weight: 700;
   font-size: 13.5px;
-  line-height: 1.45;
+  line-height: 1.55;
+}
+
+.qna-question-number {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 800;
+  margin-top: 1px;
 }
 
 .qna-label {
@@ -3144,21 +3187,35 @@ a.list-row-title:hover {
 }
 
 .qna-cover {
-  margin: 4px 0 0;
-  padding-left: 18px;
+  margin: 8px 0 0;
+  padding-left: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .qna-cover li {
   font-size: 12.5px;
-  line-height: 1.5;
-  margin-bottom: 3px;
+  line-height: 1.6;
 }
 
 .qna-draw-on {
+  margin: 12px 0 0 32px;
+  padding: 9px 12px;
+  background: var(--color-primary-tint);
+  border-radius: var(--radius-sm);
+}
+
+.qna-draw-on .qna-label {
+  display: block;
+  color: var(--color-primary-hover);
+  margin-bottom: 3px;
+}
+
+.qna-draw-on-text {
   font-size: 12.5px;
-  line-height: 1.5;
-  margin: 8px 0 0;
-  color: var(--color-text-muted);
+  line-height: 1.55;
+  color: var(--color-text);
 }
 
 /* ---------------------------------------------------------------------------
@@ -3360,12 +3417,17 @@ a.list-row-title:hover {
   color: var(--color-text-muted);
   text-decoration: line-through;
   margin-bottom: 8px;
+  /* A merge's original_text is two lines newline-joined (see ResumePreview.tsx) - preserve that
+     break instead of collapsing it into one run-on sentence. */
+  white-space: pre-line;
 }
 
 .hint-popover-after {
   font-size: 12.5px;
   line-height: 1.45;
   margin-bottom: 8px;
+  /* A split's suggested_text is two lines newline-joined - see .hint-popover-before above. */
+  white-space: pre-line;
 }
 
 .hint-popover-reason {

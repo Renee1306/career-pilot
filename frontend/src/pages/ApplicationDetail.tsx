@@ -6,12 +6,12 @@ import InterviewQuestionsCard from "../components/InterviewQuestionsCard";
 import {
   getApplication,
   getJobDescription,
-  getResume,
+  getResumeDocument,
   updateApplication,
   type ApplicationOut,
   type ApplicationStatus,
   type JobDescriptionOut,
-  type ResumeOut,
+  type ResumeDocumentOut,
 } from "../lib/api";
 
 const STATUSES: ApplicationStatus[] = ["applied", "pending_interview", "offer", "rejected"];
@@ -21,7 +21,7 @@ export default function ApplicationDetail() {
 
   const [application, setApplication] = useState<ApplicationOut | null>(null);
   const [job, setJob] = useState<JobDescriptionOut | null>(null);
-  const [resume, setResume] = useState<ResumeOut | null>(null);
+  const [resumeDoc, setResumeDoc] = useState<ResumeDocumentOut | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [sideTab, setSideTab] = useState<"snapshot" | "interview">("snapshot");
@@ -35,7 +35,7 @@ export default function ApplicationDetail() {
       .then((app) => {
         setApplication(app);
         if (app.job_description_id) getJobDescription(app.job_description_id).then(setJob).catch(() => {});
-        if (app.resume_id) getResume(app.resume_id).then(setResume).catch(() => {});
+        if (app.resume_document_id) getResumeDocument(app.resume_document_id).then(setResumeDoc).catch(() => {});
       })
       .catch(() => setError("Failed to load application"));
   };
@@ -184,7 +184,7 @@ export default function ApplicationDetail() {
             <summary style={{ cursor: "pointer", fontWeight: 600 }}>Full job description</summary>
             <p style={{ whiteSpace: "pre-wrap", marginTop: 10 }}>{job.raw_text}</p>
           </details>
-          {resume && <p className="muted">Resume used: {resume.label ?? resume.id}</p>}
+          {resumeDoc && <p className="muted">Resume used: {resumeDoc.name}</p>}
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { prefetchPickerData } from "../lib/api";
 import { supabase } from "../lib/supabaseClient";
 
 interface AuthContextValue {
@@ -26,14 +27,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) console.warn("Dev auto-login failed:", error.message);
         setSession(signInData?.session ?? null);
         setLoading(false);
+        if (signInData?.session) prefetchPickerData();
         return;
       }
       setSession(data.session);
       setLoading(false);
+      if (data.session) prefetchPickerData();
     });
 
+    // Also fires on a fresh sign-in with no page reload (e.g. from the Login page), and again on
+    // token refresh - createListCache's load() is a no-op once something's already cached or in
+    // flight, so calling this more than once here costs nothing.
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      if (newSession) prefetchPickerData();
     });
 
     return () => listener.subscription.unsubscribe();

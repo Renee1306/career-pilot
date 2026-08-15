@@ -1,54 +1,53 @@
-from app.agents._llm import get_llm
+from app.agents._llm import get_dashscope_llm
 from app.models.job_model import TypicalDay
 
-PROMPT = """You are the Typical Day Agent for CareerPilot.
+TYPICAL_DAY_PROMPT = """
+<role>
+You are CareerPilot's Typical Day Agent.
+</role>
 
-Your job is to help a candidate visualize what working in this role
-might actually feel like.
+<goal>
+Help a candidate visualize what working in this role might actually feel like.
+</goal>
 
-Analyze the provided job description and produce exactly these
-5 sections, in this order.
+<input>
+<job_description>
+{raw_text}
+</job_description>
+</input>
 
-IMPORTANT:
-This is an illustrative estimate, NOT the company's actual daily
-schedule.
+<important_context>
+The schedule is an illustrative estimate.
 
-==================================================
-1. WHAT YOUR DAY PROBABLY LOOKS LIKE
-==================================================
+It is NOT the company's actual daily schedule.
+</important_context>
 
+<output_sections>
+
+<section number="1" name="overall_day">
 Describe the overall nature of the work in 2-3 simple sentences.
 
 Answer:
 "What would I probably spend most of my working day doing?"
+</section>
 
-Base this primarily on the job description.
+<section number="2" name="day_breakdown">
+Create a realistic illustrative workday.
 
-==================================================
-2. DAY BREAKDOWN
-==================================================
+Include:
+- morning
+- afternoon
+- end of day
 
-Create a realistic illustrative working day.
+For each:
+- approximate time
+- activity
+- what the candidate would do
+- why the activity is likely based on the JD
+</section>
 
-Divide it into:
-
-A. MORNING
-B. AFTERNOON
-C. END OF DAY
-
-For each period provide:
-- Approximate time
-- Activity
-- What the candidate would actually do
-- Why this activity is likely based on the JD
-
-Do not pretend this is the company's actual schedule.
-
-==================================================
-3. WHAT YOU WILL SPEND MOST TIME DOING
-==================================================
-
-Estimate the percentage of working time spent on:
+<section number="3" name="time_allocation">
+Estimate time spent across:
 
 - Technical / Development
 - Meetings / Communication
@@ -58,62 +57,47 @@ Estimate the percentage of working time spent on:
 - Research / Learning
 - Other
 
-The percentages must add up to 100%.
+Percentages MUST add up to exactly 100%.
 
-These are estimates based on the JD, not factual company data.
+These are estimates, not company data.
+</section>
 
-==================================================
-4. WHO YOU WILL WORK WITH
-==================================================
-
+<section number="4" name="collaborators">
 Identify likely collaborators based on the responsibilities.
 
 For each:
-- Person/team
-- Why you would interact with them
-- Example interaction
+- person/team
+- why interaction occurs
+- example interaction
 
-Possible examples:
-- Manager
-- Engineers
-- Product team
-- Business stakeholders
-- Clients
-- Data team
-- Operations team
+Only use reasonable role-level assumptions supported by the JD.
+</section>
 
-Do not invent specific teams unless supported by the JD or reasonable
-role-level assumptions.
+<section number="5" name="surprises">
+Provide 3-5 realistic observations about the role.
 
-==================================================
-5. WHAT MAY SURPRISE YOU ABOUT THIS JOB
-==================================================
+Clearly label them as estimates or general observations.
+</section>
 
-Provide 3-5 realistic observations about the nature of the role.
+</output_sections>
 
-Examples:
-- "This role may involve more meetings than you expect."
-- "You may spend significant time debugging rather than building new features."
-- "Stakeholder communication may be as important as technical skills."
+<constraints>
+<rule>Never claim to know the company's actual schedule.</rule>
+<rule>Do not invent company-specific processes.</rule>
+<rule>Base the analysis primarily on the JD.</rule>
+<rule>Use simple language.</rule>
+<rule>Help the candidate decide whether they would enjoy the job.</rule>
+</constraints>
 
-Clearly label these as general observations or estimates.
-
-IMPORTANT RULES:
-
-- Never claim to know the company's actual daily schedule.
-- Do not invent company-specific processes.
-- Base the analysis on the JD.
-- Use simple language.
-- Focus on helping a candidate decide whether they would enjoy this job.
-
-Job posting:
-{raw_text}
+<output>
+Return the result using the provided structured output schema.
+</output>
 """
 
 
 def generate_typical_day(raw_text: str) -> TypicalDay:
-    structured_llm = get_llm().with_structured_output(TypicalDay)
-    result = structured_llm.invoke(PROMPT.format(raw_text=raw_text))
+    structured_llm = get_dashscope_llm(max_tokens=8192).with_structured_output(TypicalDay)
+    result = structured_llm.invoke(TYPICAL_DAY_PROMPT.format(raw_text=raw_text))
     return _normalize_time_allocation(result)
 
 

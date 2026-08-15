@@ -22,14 +22,50 @@ async function authedFetch(path: string, options: RequestInit = {}) {
   return response.json();
 }
 
-export interface ResumeOut {
-  id: string;
-  label: string | null;
-  file_url: string | null;
-  parsed_text: string | null;
-  parsed_json: Record<string, unknown> | null;
-  version: number;
-  created_at: string;
+/** Shared in-memory cache for the small "list everything so a picker can show it" endpoints -
+ *  job descriptions and resume documents are each fetched by several unrelated dropdowns (Job
+ *  Analysis, the JD coach, Interview Questions, ...), and every one of them re-hitting the
+ *  network on mount was the actual source of "this dropdown takes a while to load". The list
+ *  barely changes between mounts, so serving the cached copy - refreshed whenever something
+ *  explicitly needs current data, via `force` - is a better trade than re-fetching every time a
+ *  picker appears. Module-level (not React state) so it's shared by every component regardless
+ *  of mount/unmount, and survives navigating between pages. */
+function createListCache<T>(fetcher: () => Promise<T[]>) {
+  let cached: T[] | null = null;
+  let inFlight: Promise<T[]> | null = null;
+
+  const load = (opts?: { force?: boolean }): Promise<T[]> => {
+    if (!opts?.force) {
+      if (cached) return Promise.resolve(cached);
+      if (inFlight) return inFlight;
+    }
+    inFlight = fetcher()
+      .then((data) => {
+        cached = data;
+        inFlight = null;
+        return data;
+      })
+      .catch((err) => {
+        inFlight = null;
+        throw err;
+      });
+    return inFlight;
+  };
+
+  // Lets a create-endpoint hand its freshly-created row straight to the cache instead of every
+  // caller having to know to force a whole refetch just to make a picker see its own new entry.
+  const prepend = (item: T) => {
+    if (cached) cached = [item, ...cached];
+  };
+
+  // For deletes: a stale cached entry is usually harmless (a dropdown label a beat out of date),
+  // but an entry a picker can still select that 404s the moment something tries to use it is an
+  // actual bug, not just staleness - worth the extra call site to avoid.
+  const remove = (predicate: (item: T) => boolean) => {
+    if (cached) cached = cached.filter((item) => !predicate(item));
+  };
+
+  return { load, prepend, remove };
 }
 
 export interface JobDescriptionOut {
@@ -41,40 +77,51 @@ export interface JobDescriptionOut {
   created_at: string;
 }
 
-export function listResumes(): Promise<ResumeOut[]> {
-  return authedFetch("/resumes");
-}
+const jobDescriptionsCache = createListCache<JobDescriptionOut>(() => authedFetch("/jobs"));
 
-export function getResume(resumeId: string): Promise<ResumeOut> {
-  return authedFetch(`/resumes/${resumeId}`);
-}
-
-export function uploadResume(file: File, label?: string): Promise<ResumeOut> {
-  const formData = new FormData();
-  formData.append("file", file);
-  if (label) formData.append("label", label);
-  return authedFetch("/resumes/upload", { method: "POST", body: formData });
-}
-
-export function listJobDescriptions(): Promise<JobDescriptionOut[]> {
-  return authedFetch("/jobs");
+export function listJobDescriptions(opts?: { force?: boolean }): Promise<JobDescriptionOut[]> {
+  return jobDescriptionsCache.load(opts);
 }
 
 export function getJobDescription(jobId: string): Promise<JobDescriptionOut> {
   return authedFetch(`/jobs/${jobId}`);
 }
 
-export function createJobDescription(payload: {
+export async function createJobDescription(payload: {
   raw_text: string;
   company?: string;
   title?: string;
   source_url?: string;
 }): Promise<JobDescriptionOut> {
-  return authedFetch("/jobs", {
+  const job = await authedFetch("/jobs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  jobDescriptionsCache.prepend(job);
+  return job;
+}
+
+/** Warms the job description / resume document caches right after sign-in, so the first dropdown
+ *  the user opens (wherever they land) doesn't pay for the fetch - see createListCache above.
+ *  Fire-and-forget: a picker that mounts before this resolves just falls back to its own normal
+ *  (cached-if-ready, fetched-if-not) load, so a slow or failed prefetch never blocks anything. */
+export function prefetchPickerData() {
+  listJobDescriptions().catch(() => {});
+  listResumeDocuments().catch(() => {});
+}
+
+/** Job Analysis only ever saves `raw_text` - `title`/`company` are almost always null in
+ *  practice, so a dropdown built on those alone reads as a wall of "Untitled role". Fall back to
+ *  a snippet of the pasted text plus the save date, which is always distinguishing. Shared by
+ *  every picker that lets a user choose a previously-saved job description. */
+export function jobOptionLabel(job: JobDescriptionOut): string {
+  const date = new Date(job.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (job.title) {
+    return job.company ? `${job.company} — ${job.title}` : job.title;
+  }
+  const snippet = job.raw_text.trim().replace(/\s+/g, " ").slice(0, 60);
+  return `${date} — ${snippet}${job.raw_text.length > 60 ? "..." : ""}`;
 }
 
 export interface ResponsibilityItem {
@@ -102,17 +149,12 @@ export interface KeyTerm {
   example: string;
 }
 
-export interface InterviewQuestions {
-  hr_questions: string[];
-  role_questions: string[];
-}
-
 export interface JobExplanation {
   one_sentence_summary: string;
   top_responsibilities: ResponsibilityItem[];
   requirements: RequirementBreakdown;
   key_terms: KeyTerm[];
-  likely_questions: InterviewQuestions;
+  role_questions: string[];
 }
 
 export interface DayPeriod {
@@ -157,7 +199,7 @@ export interface JobAnalysisOut {
   job_description_id: string;
   explanation: JobExplanation | null;
   typical_day: TypicalDay | null;
-  translations: Record<string, JobExplanation>;
+  explanation_translations: Record<string, JobExplanation>;
   typical_day_translations: Record<string, TypicalDay>;
   created_at: string;
 }
@@ -366,6 +408,7 @@ export interface ResumeStyle {
   name_color: string;
   heading_color: string;
   body_color: string;
+  text_align: "left" | "center" | "right" | "justify";
 }
 
 export interface ResumeDocumentListItem {
@@ -383,25 +426,31 @@ export interface ResumeDocumentOut extends ResumeDocumentListItem {
   style: ResumeStyle;
 }
 
-export function listResumeDocuments(): Promise<ResumeDocumentListItem[]> {
-  return authedFetch("/resume-documents");
+const resumeDocumentsCache = createListCache<ResumeDocumentListItem>(() => authedFetch("/resume-documents"));
+
+export function listResumeDocuments(opts?: { force?: boolean }): Promise<ResumeDocumentListItem[]> {
+  return resumeDocumentsCache.load(opts);
 }
 
-export function createResumeDocument(payload: {
+export async function createResumeDocument(payload: {
   name?: string;
   template_id?: string;
 }): Promise<ResumeDocumentOut> {
-  return authedFetch("/resume-documents", {
+  const doc = await authedFetch("/resume-documents", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  resumeDocumentsCache.prepend(doc);
+  return doc;
 }
 
-export function importResumeDocument(file: File): Promise<ResumeDocumentOut> {
+export async function importResumeDocument(file: File): Promise<ResumeDocumentOut> {
   const formData = new FormData();
   formData.append("file", file);
-  return authedFetch("/resume-documents/import", { method: "POST", body: formData });
+  const doc = await authedFetch("/resume-documents/import", { method: "POST", body: formData });
+  resumeDocumentsCache.prepend(doc);
+  return doc;
 }
 
 export function getResumeDocument(id: string): Promise<ResumeDocumentOut> {
@@ -419,12 +468,16 @@ export function updateResumeDocument(
   });
 }
 
-export function deleteResumeDocument(id: string): Promise<{ deleted: boolean }> {
-  return authedFetch(`/resume-documents/${id}`, { method: "DELETE" });
+export async function deleteResumeDocument(id: string): Promise<{ deleted: boolean }> {
+  const result = await authedFetch(`/resume-documents/${id}`, { method: "DELETE" });
+  resumeDocumentsCache.remove((doc) => doc.id === id);
+  return result;
 }
 
-export function duplicateResumeDocument(id: string): Promise<ResumeDocumentOut> {
-  return authedFetch(`/resume-documents/${id}/duplicate`, { method: "POST" });
+export async function duplicateResumeDocument(id: string): Promise<ResumeDocumentOut> {
+  const doc = await authedFetch(`/resume-documents/${id}/duplicate`, { method: "POST" });
+  resumeDocumentsCache.prepend(doc);
+  return doc;
 }
 
 export function uploadResumePhoto(id: string, file: File): Promise<ResumeDocumentOut> {
@@ -437,12 +490,8 @@ export function deleteResumePhoto(id: string): Promise<ResumeDocumentOut> {
   return authedFetch(`/resume-documents/${id}/photo`, { method: "DELETE" });
 }
 
-export function enhanceResumeText(payload: { text: string; context?: string }): Promise<{ text: string }> {
-  return authedFetch("/resume-documents/enhance-text", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+export function generateResumeSummary(id: string): Promise<{ text: string }> {
+  return authedFetch(`/resume-documents/${id}/generate-summary`, { method: "POST" });
 }
 
 export type HintTarget = "summary" | "work_experience" | "projects" | "skills";
@@ -451,13 +500,19 @@ export type HintTarget = "summary" | "work_experience" | "projects" | "skills";
  *
  *  `mode` is the important distinction: "replace" rewords a line that already exists, while
  *  "append" adds a new one - which only ever comes out of the gap conversation, after the
- *  candidate has confirmed they genuinely have that experience. */
+ *  candidate has confirmed they genuinely have that experience.
+ *
+ *  A "replace" hint can also restructure a bullet: `suggested_text` may hold two newline-joined
+ *  lines to split one bullet into two, and `merge_bullet_index` may name a second original
+ *  bullet - in the same entry - that this hint folds into `bullet_index`, with `original_text`
+ *  then holding both source lines newline-joined in (bullet_index, merge_bullet_index) order. */
 export interface ResumeHint {
   id: string;
   target: HintTarget;
   entry_id: string | null;
   entry_label: string;
   bullet_index: number | null;
+  merge_bullet_index: number | null;
   mode: "replace" | "append";
   original_text: string;
   suggested_text: string;
@@ -538,6 +593,25 @@ function locateLine(lines: string[], hint: ResumeHint): number {
 function applyToDescription(description: string, hint: ResumeHint): string {
   const lines = splitBullets(description);
   if (hint.mode === "append") return [...lines, hint.suggested_text].join("\n");
+
+  if (hint.merge_bullet_index !== null) {
+    const [firstText, secondText] = hint.original_text.split("\n");
+    if (
+      hint.bullet_index === null ||
+      lines[hint.bullet_index] !== firstText ||
+      lines[hint.merge_bullet_index] !== secondText
+    ) {
+      return description;
+    }
+    const keepIndex = hint.bullet_index;
+    const dropIndex = hint.merge_bullet_index;
+    const merged: string[] = [];
+    lines.forEach((line, i) => {
+      if (i === dropIndex) return;
+      merged.push(i === keepIndex ? hint.suggested_text : line);
+    });
+    return merged.join("\n");
+  }
 
   const index = locateLine(lines, hint);
   if (index === -1) return description;
@@ -639,7 +713,7 @@ export interface InterviewQnA {
 export interface ApplicationOut {
   id: string;
   job_description_id: string | null;
-  resume_id: string | null;
+  resume_document_id: string | null;
   status: ApplicationStatus;
   applied_date: string | null;
   company: string | null;
@@ -661,7 +735,7 @@ export function getApplication(applicationId: string): Promise<ApplicationOut> {
 
 export function createApplication(payload: {
   job_description_id?: string;
-  resume_id?: string;
+  resume_document_id?: string;
   status?: ApplicationStatus;
   applied_date?: string;
   company?: string;
@@ -735,54 +809,6 @@ export function updateTimelineEntry(
 
 export function deleteTimelineEntry(applicationId: string, entryId: string): Promise<ApplicationOut> {
   return authedFetch(`/applications/${applicationId}/timeline/${entryId}`, { method: "DELETE" });
-}
-
-/** Scheduled interview rounds still accept the retired "hr"/"technical" names, because rows saved
- *  before the rename must keep loading. Only `InterviewRoundType` above can be generated. */
-export type RoundType = InterviewRoundType | "hr" | "technical" | "other";
-
-export interface InterviewRoundOut {
-  id: string;
-  application_id: string;
-  round_type: RoundType;
-  scheduled_at: string | null;
-  link: string | null;
-  notes: string | null;
-  generated_qna: InterviewQnA | null;
-  created_at: string;
-}
-
-export function listInterviewRounds(applicationId: string): Promise<InterviewRoundOut[]> {
-  return authedFetch(`/interview-rounds?application_id=${applicationId}`);
-}
-
-export function createInterviewRound(payload: {
-  application_id: string;
-  round_type: RoundType;
-  scheduled_at?: string;
-  link?: string;
-  notes?: string;
-}): Promise<InterviewRoundOut> {
-  return authedFetch("/interview-rounds", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function updateInterviewRound(
-  roundId: string,
-  payload: { round_type?: RoundType; scheduled_at?: string; link?: string; notes?: string }
-): Promise<InterviewRoundOut> {
-  return authedFetch(`/interview-rounds/${roundId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function generateInterviewQnA(roundId: string): Promise<InterviewRoundOut> {
-  return authedFetch(`/interview-rounds/${roundId}/generate-qna`, { method: "POST" });
 }
 
 export interface GmailSyncStatus {

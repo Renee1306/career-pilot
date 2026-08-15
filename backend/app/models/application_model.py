@@ -11,7 +11,7 @@ TimelineEntryType = Literal["applied", "rejected", "interview", "case_study", "n
 
 class ApplicationCreate(BaseModel):
     job_description_id: str | None = None
-    resume_id: str | None = None
+    resume_document_id: str | None = None
     status: ApplicationStatus = "applied"
     applied_date: date | None = None
     company: str | None = None
@@ -66,7 +66,7 @@ class InterviewQuestionsRequest(BaseModel):
     resume_document_id: str | None = Field(
         default=None,
         description="Resume Builder document to ground the questions in. Optional: falls back to "
-        "the uploaded resume linked to the application.",
+        "the resume document linked to the application.",
     )
 
 
@@ -74,7 +74,7 @@ class ApplicationOut(BaseModel):
     id: str
     user_id: str
     job_description_id: str | None
-    resume_id: str | None
+    resume_document_id: str | None
     status: ApplicationStatus
     applied_date: date | None
     company: str | None

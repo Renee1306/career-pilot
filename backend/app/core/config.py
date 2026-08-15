@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str | None = None
     gemini_api_key: str | None = None
     openrouter_api_key: str | None = None
+    alibaba_api_key: str | None = None
     cors_origins: str = "http://localhost:5173"
 
     google_client_id: str | None = None

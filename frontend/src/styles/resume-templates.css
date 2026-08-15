@@ -3,6 +3,10 @@
 
 .resume-template {
   font-size: var(--resume-body-size, 13px);
+  /* Inherited down to every paragraph, bullet and heading - text-align:justify only ever
+     affects a wrapped line's non-last run, so it's a no-op on the short single-line bits
+     (name, dates, entry titles) and only visibly changes the prose. */
+  text-align: var(--resume-text-align, left);
 }
 
 /* h1/h2 colors are their own style-panel controls (see StylePanel.tsx) rather than being

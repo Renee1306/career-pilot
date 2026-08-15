@@ -16,29 +16,20 @@
     visibility: hidden;
   }
 
-  /* #resume-print-root (see ResumePreview.tsx) is a permanently off-screen copy of the full,
-     unpaginated resume - it's what the on-screen page-break math measures, and it doubles as
-     the print source so print pagination always matches what the preview showed. Its inline
-     style hides it (visibility/pointer-events) for the screen case, which - being inline -
-     outranks the stylesheet rule below unless that rule carries !important too. */
-  #resume-print-root,
-  #resume-print-root * {
+  /* .resume-page-stack (see ResumePreview.tsx) is the same on-screen sheet stack the
+     preview renders, one .resume-page-sheet per page, each already a real A4-sized box -
+     printing it directly (instead of re-flowing one continuous element through the
+     browser's own page breaks) is what makes the export match the preview's pagination,
+     including the no-mid-entry-cut logic and the per-page top margin below. */
+  .resume-page-stack,
+  .resume-page-stack * {
     visibility: visible !important;
   }
 
-  /* Exact A4 width, and min-height explicitly reset to 0: .resume-page has no forced min-height
-     any more (see components.css - the on-screen full-page look now comes from .resume-page-sheet
-     instead), but resetting it here still guards against the content box rounding up past the
-     printable area and emitting a trailing blank page. The paper is already A4 via @page above,
-     so the sheet is A4 regardless of content height. */
+  /* #resume-print-root only exists to measure the unpaginated content for the break math
+     above - it was never meant to be seen, on screen or on paper. */
   #resume-print-root {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 210mm !important;
-    min-height: 0 !important;
-    box-shadow: none !important;
-    transform: none !important;
+    display: none !important;
   }
 
   /* A pending suggestion is an offer, not part of the resume. The highlight on an existing line
@@ -56,20 +47,52 @@
     display: none !important;
   }
 
-  /* The popover is portalled to <body>, so it sits outside #resume-print-root and would
-     otherwise be hidden-but-still-paginated alongside the sheet. */
+  /* The popover is portalled to <body>, so it sits outside .resume-page-stack and would
+     otherwise be hidden-but-still-paginated alongside the sheets. */
   .hint-popover {
     display: none !important;
   }
 
-  /* .resume-page-container (see ResumePreview.tsx) holds #resume-print-root at a small
-     inline height + overflow:hidden for the on-screen scale-to-fit preview - both still
-     apply during print unless neutralized here, and overflow:hidden on an ancestor clips
-     an absolutely-positioned descendant's paint regardless of which element is its actual
-     containing block, silently cropping the export to whatever tiny on-screen size was
-     last measured. */
+  /* Everything the sheet stack sits inside - the top nav, the page title/Export bar, the
+     editor's two side panels, and every layer of padding between them - is invisible
+     already, but still occupies layout space (visibility:hidden doesn't collapse a box)
+     and, for the panes below, still clips its content the way .resume-page-container's own
+     overflow:hidden used to (see the width/height reset there). Left in place, that chrome
+     both crops the export to whatever the editor's on-screen viewport happened to be and
+     insets page 1 by the nav/header/padding height - throwing off the very top-margin
+     match the per-page spacer above is trying to guarantee. Removing/zeroing it all lets
+     the stack sit flush at the true top-left of the printed page. */
+  .topbar,
+  .page-header,
+  .builder-sections,
+  .builder-rail,
+  .builder-rail-reopen {
+    display: none !important;
+  }
+
+  .main-content,
+  .builder-preview-pane {
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
   .resume-page-container {
     height: auto !important;
     overflow: visible !important;
+  }
+
+  .resume-page-stack {
+    transform: none !important;
+  }
+
+  .resume-page-sheet {
+    box-shadow: none !important;
+    /* One physical page per sheet; the last one must not force a trailing blank page. */
+    break-after: page;
+  }
+
+  .resume-page-sheet:last-child {
+    break-after: auto;
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   generateInterviewQuestions,
+  jobOptionLabel,
   listJobDescriptions,
   listResumeDocuments,
   type ApplicationOut,
@@ -20,18 +21,6 @@ const ROUND_BLURBS: Record<InterviewRoundType, string> = {
   hiring_manager:
     "Whether you can do this specific job — your past work, the decisions you made, and how it maps to the role.",
 };
-
-/** Job Analysis only ever saves `raw_text` - `title`/`company` are almost always null in
- *  practice, so a dropdown built on those alone reads as a wall of "Untitled role". Fall back to
- *  a snippet of the pasted text plus the save date, which is always distinguishing. */
-function jobOptionLabel(job: JobDescriptionOut): string {
-  const date = new Date(job.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  if (job.title) {
-    return job.company ? `${job.company} — ${job.title}` : job.title;
-  }
-  const snippet = job.raw_text.trim().replace(/\s+/g, " ").slice(0, 60);
-  return `${date} — ${snippet}${job.raw_text.length > 60 ? "..." : ""}`;
-}
 
 export default function InterviewQuestionsCard({
   application,
@@ -61,11 +50,17 @@ export default function InterviewQuestionsCard({
     listResumeDocuments()
       .then((docs) => {
         setResumeDocs(docs);
-        // Most people keep one resume; preselecting it means the common path is just "Generate".
-        if (docs.length === 1) setResumeDocId(docs[0].id);
+        // Prefer the resume already linked to this application - that's the one they actually
+        // sent. Otherwise, if there's only one resume on file at all, preselecting it means the
+        // common path is just "Generate".
+        if (application.resume_document_id && docs.some((d) => d.id === application.resume_document_id)) {
+          setResumeDocId(application.resume_document_id);
+        } else if (docs.length === 1) {
+          setResumeDocId(docs[0].id);
+        }
       })
       .catch(() => {});
-  }, []);
+  }, [application.resume_document_id]);
 
   const generated = application.interview_questions ?? null;
   const current = generated?.[round];
@@ -102,9 +97,7 @@ export default function InterviewQuestionsCard({
             value={resumeDocId}
             onChange={(e) => setResumeDocId(e.target.value)}
           >
-            <option value="">
-              {application.resume_id ? "Uploaded resume on this application" : "No resume"}
-            </option>
+            <option value="">No resume</option>
             {resumeDocs.map((doc) => (
               <option key={doc.id} value={doc.id}>
                 {doc.name}
@@ -176,6 +169,9 @@ export default function InterviewQuestionsCard({
           </button>
         ))}
       </div>
+      <p className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>
+        Usually takes about 10 seconds.
+      </p>
 
       {error && (
         <p className="alert" style={{ marginTop: 12 }}>
@@ -207,11 +203,16 @@ export default function InterviewQuestionsCard({
           </p>
           <ol className="qna-list">
             {current.questions.map((item, i) => (
-              <li key={i}>
-                <div className="qna-question">{item.question}</div>
+              <li key={i} className="qna-card">
+                <div className="qna-question">
+                  <span className="qna-question-number">{i + 1}</span>
+                  <span>{item.question}</span>
+                </div>
                 {item.answer_should_cover.length > 0 && (
                   <>
-                    <div className="qna-label">Your answer should cover</div>
+                    <div className="qna-label" style={{ marginLeft: 32, marginTop: 10 }}>
+                      Your answer should cover
+                    </div>
                     <ul className="qna-cover">
                       {item.answer_should_cover.map((point, j) => (
                         <li key={j}>{point}</li>
@@ -220,9 +221,10 @@ export default function InterviewQuestionsCard({
                   </>
                 )}
                 {item.draw_on && (
-                  <p className="qna-draw-on">
-                    <span className="qna-label">Draw on</span> {item.draw_on}
-                  </p>
+                  <div className="qna-draw-on">
+                    <span className="qna-label">Draw on</span>
+                    <span className="qna-draw-on-text">{item.draw_on}</span>
+                  </div>
                 )}
               </li>
             ))}

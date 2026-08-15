@@ -210,6 +210,7 @@ class ResumeStyle(BaseModel):
     name_color: str = "#211f26"
     heading_color: str = "#ff6b3d"
     body_color: str = "#211f26"
+    text_align: Literal["left", "center", "right", "justify"] = "left"
 
 
 class ResumeDocumentCreate(BaseModel):
@@ -239,12 +240,7 @@ class ResumeDocumentOut(ResumeDocumentListItem):
     style: ResumeStyle
 
 
-class EnhanceTextRequest(BaseModel):
-    text: str
-    context: str | None = None
-
-
-class EnhanceTextResponse(BaseModel):
+class GenerateSummaryResponse(BaseModel):
     text: str
 
 
@@ -265,6 +261,12 @@ class ResumeHint(BaseModel):
     `mode` distinguishes the two things a hint can do: "replace" rewords a line that is already
     there (the JD-keyword reframe path), while "append" adds a brand-new line - which only ever
     happens after the candidate has confirmed the underlying experience in the gap conversation.
+
+    A "replace" hint can also restructure a bullet rather than just reword it: `suggested_text`
+    may hold two newline-separated lines to split one overloaded bullet into two, and
+    `merge_bullet_index` may name a second original bullet - in the same entry - that
+    `suggested_text` folds into this one, combining both into a single line. `original_text`
+    then holds both source lines, newline-separated, in (bullet_index, merge_bullet_index) order.
     """
 
     id: str
@@ -272,6 +274,7 @@ class ResumeHint(BaseModel):
     entry_id: str | None = None
     entry_label: str = ""
     bullet_index: int | None = None
+    merge_bullet_index: int | None = None
     mode: Literal["replace", "append"] = "replace"
     original_text: str = ""
     suggested_text: str = ""

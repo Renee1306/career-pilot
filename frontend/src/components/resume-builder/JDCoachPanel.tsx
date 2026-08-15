@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  jobOptionLabel,
+  listJobDescriptions,
   reviewResumeForJD,
   runGapTurn,
   type CoachMessage,
   type JDGap,
   type JDReview,
+  type JobDescriptionOut,
   type ResumeHint,
 } from "../../lib/api";
 
@@ -35,9 +38,23 @@ export default function JDCoachPanel({
 }) {
   const [phase, setPhase] = useState<Phase>("input");
   const [jdText, setJdText] = useState("");
+  const [savedJobs, setSavedJobs] = useState<JobDescriptionOut[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState("");
   const [review, setReview] = useState<JDReview | null>(null);
   const [gapStates, setGapStates] = useState<Record<string, GapState>>({});
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listJobDescriptions()
+      .then(setSavedJobs)
+      .catch(() => {});
+  }, []);
+
+  const handlePickSaved = (jobId: string) => {
+    setSelectedJobId(jobId);
+    const picked = savedJobs.find((j) => j.id === jobId);
+    if (picked) setJdText(picked.raw_text);
+  };
 
   const gapState = (id: string) => gapStates[id] ?? NEW_GAP;
   const patchGap = (id: string, patch: Partial<GapState>) =>
@@ -98,6 +115,7 @@ export default function JDCoachPanel({
     setPhase("input");
     setReview(null);
     setGapStates({});
+    setSelectedJobId("");
     onHintsChange([]);
   };
 
@@ -114,11 +132,39 @@ export default function JDCoachPanel({
             wording worth changing, and ask you about anything it's missing — nothing gets written
             unless you say you actually have the experience.
           </p>
+
+          {savedJobs.length > 0 && (
+            <div className="field">
+              <label htmlFor="jdc-saved-jd">Use a job description from Job Analysis</label>
+              <select
+                id="jdc-saved-jd"
+                className="input"
+                value={selectedJobId}
+                onChange={(e) => handlePickSaved(e.target.value)}
+                disabled={phase === "reviewing"}
+              >
+                <option value="">Choose one...</option>
+                {savedJobs.map((saved) => (
+                  <option key={saved.id} value={saved.id}>
+                    {jobOptionLabel(saved)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <label htmlFor="jdc-jd-text" className="muted" style={{ fontSize: 12.5, display: "block", marginBottom: 4 }}>
+            {savedJobs.length > 0 ? "Or paste a job description" : "Job description"}
+          </label>
           <textarea
+            id="jdc-jd-text"
             className="input"
             rows={10}
             value={jdText}
-            onChange={(e) => setJdText(e.target.value)}
+            onChange={(e) => {
+              setJdText(e.target.value);
+              setSelectedJobId("");
+            }}
             placeholder="Paste the job description here..."
             disabled={phase === "reviewing"}
           />
@@ -131,6 +177,9 @@ export default function JDCoachPanel({
           >
             {phase === "reviewing" ? "Reading the JD..." : "Check my match"}
           </button>
+          <p className="muted" style={{ fontSize: 11.5, marginTop: 6, textAlign: "center" }}>
+            Usually takes about 45 seconds - it reads the whole resume against the JD.
+          </p>
         </>
       )}
 

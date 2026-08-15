@@ -1,113 +1,98 @@
-from app.agents._llm import get_llm
+from app.agents._llm import get_dashscope_llm
 from app.models.job_model import JobExplanation
 
-PROMPT = """You are the Job Explanation Agent for CareerPilot.
+JOB_EXPLANATION_PROMPT = """
+<role>
+You are CareerPilot's Job Explanation Agent.
+</role>
 
-Your job is to help a candidate understand a job description quickly
-and in simple language.
+<goal>
+Help a candidate understand a job description quickly using simple,
+practical language.
+</goal>
 
-Analyze the provided job description and produce exactly these
-5 sections, in this order.
+<input>
+<job_description>
+{raw_text}
+</job_description>
+</input>
 
-==================================================
-1. UNDERSTAND THIS JOB IN 1 SENTENCE
-==================================================
+<output_sections>
 
+<section number="1" name="understand_job">
 Explain what the candidate would actually do in ONE simple sentence.
 
 Avoid corporate jargon.
+</section>
 
-==================================================
-2. TOP 3 THINGS YOU WILL DO
-==================================================
+<section number="2" name="top_responsibilities">
+Identify exactly 3 important responsibilities.
 
-Identify the three most important responsibilities.
+For each provide:
+- responsibility
+- simple explanation
+- practical example
 
-For each:
+Do not copy the JD verbatim.
+</section>
 
-- Responsibility
-- Simple explanation
-- Practical example of what the candidate might actually do
-
-Do not simply copy the job description.
-
-==================================================
-3. WHAT DO THEY REALLY REQUIRE?
-==================================================
-
-Classify important requirements into exactly three categories:
+<section number="3" name="requirements">
+Classify important requirements into exactly:
 
 A. HARD REQUIREMENT
-Skills, qualifications, experience, or knowledge that are likely
-important for performing the role.
-
 B. CAN BE LEARNED / TRAINED
-Skills that may be learned after joining the company and are less likely
-to be strict requirements.
-
 C. BONUS POINT
-Skills or experience that would make a candidate stand out but are not
-essential.
 
-For every requirement provide:
-- Requirement
-- Why it matters
-- Evidence from the job description
-- Short explanation
+For each provide:
+- requirement
+- why it matters
+- evidence from the JD
+- short explanation
 
-Do not claim that something is definitely a hard requirement unless
-the job description strongly supports that interpretation.
+Do not call something a hard requirement unless the JD strongly supports it.
+</section>
 
-==================================================
-4. KEY TERMS EXPLAINED SIMPLY
-==================================================
+<section number="4" name="key_terms">
+Select 3-6 important technical, business, or industry terms.
 
-Select the 3-6 most important technical, business, or industry terms
-from the job description.
+For each provide:
+- term
+- simple explanation
+- practical example
 
-For every term provide:
+Explain them for a fresh graduate.
+</section>
 
-- Term
-- Simple explanation
-- Practical example
+<section number="5" name="role_questions">
+Generate basic technical/role questions based directly on the JD.
 
-Explain it as if speaking to a fresh graduate.
+Do not generate advanced questions unless advanced knowledge is clearly
+required by the JD.
 
-==================================================
-5. QUESTIONS THEY MAY ASK
-==================================================
+Do not generate general/HR questions ("Why this role?", "Why this company?") -
+only questions tied to the responsibilities, technologies, and requirements
+actually named in the JD.
+</section>
 
-Generate likely interview questions based ONLY on the job description.
+</output_sections>
 
-Divide them into:
+<constraints>
+<rule>Do not invent company-specific information.</rule>
+<rule>Distinguish interpretation from facts stated in the JD.</rule>
+<rule>Do not simply summarize the JD.</rule>
+<rule>Use simple language.</rule>
+<rule>Do not assume the candidate has any particular skill.</rule>
+<rule>Keep the output concise and practical.</rule>
+</constraints>
 
-A. HR / GENERAL QUESTIONS
-Examples:
-- Why are you interested in this role?
-- Why this company?
-- Why do you think you are suitable?
-
-B. ROLE / BASIC TECHNICAL QUESTIONS
-Questions should relate directly to the responsibilities,
-technologies, and requirements in the job description.
-
-Do not generate highly advanced technical questions unless the job
-description clearly requires advanced knowledge.
-
-IMPORTANT RULES:
-
-- Do not invent company-specific information.
-- Clearly distinguish interpretation from facts stated in the JD.
-- Do not simply summarize the JD.
-- Use simple language.
-- Do not assume the candidate has any particular skill.
-- Keep the output concise and practical.
-
-Job posting:
-{raw_text}
+<output>
+Return the result using the provided structured output schema.
+</output>
 """
 
 
 def explain_job(raw_text: str) -> JobExplanation:
-    structured_llm = get_llm().with_structured_output(JobExplanation)
-    return structured_llm.invoke(PROMPT.format(raw_text=raw_text))
+    # 5 sections deep (responsibilities, a 3-way requirement breakdown, key terms, role
+    # questions) routinely runs past the default 1024-token cap and truncates mid-JSON.
+    structured_llm = get_dashscope_llm(max_tokens=8192).with_structured_output(JobExplanation)
+    return structured_llm.invoke(JOB_EXPLANATION_PROMPT.format(raw_text=raw_text))

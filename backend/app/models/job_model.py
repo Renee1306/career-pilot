@@ -34,13 +34,6 @@ class KeyTerm(BaseModel):
     example: str
 
 
-class InterviewQuestions(BaseModel):
-    hr_questions: list[str] = Field(description="General/HR questions, e.g. 'Why this role?'")
-    role_questions: list[str] = Field(
-        description="Basic technical/role questions tied directly to the JD's responsibilities and requirements"
-    )
-
-
 class JobExplanation(BaseModel):
     one_sentence_summary: str = Field(description="What the candidate would actually do, in one simple sentence")
     top_responsibilities: list[ResponsibilityItem] = Field(
@@ -48,7 +41,9 @@ class JobExplanation(BaseModel):
     )
     requirements: RequirementBreakdown
     key_terms: list[KeyTerm] = Field(description="3-6 of the most important terms from the job description")
-    likely_questions: InterviewQuestions
+    role_questions: list[str] = Field(
+        description="Basic technical/role questions tied directly to the JD's responsibilities and requirements"
+    )
 
 
 class DayPeriod(BaseModel):
@@ -118,6 +113,6 @@ class JobAnalysisOut(BaseModel):
     job_description_id: str
     explanation: dict | None
     typical_day: dict | None
-    translations: dict
+    explanation_translations: dict
     typical_day_translations: dict = Field(default_factory=dict)
     created_at: datetime
