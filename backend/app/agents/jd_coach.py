@@ -18,7 +18,7 @@ from typing import Literal
 from langchain_core.runnables import RunnableLambda, RunnableParallel
 from pydantic import BaseModel, Field
 
-from app.agents._llm import get_openrouter_llm
+from app.agents._llm import get_dashscope_llm
 from app.models.resume_document_model import (
     CoachMessage,
     GapTurnResponse,
@@ -833,7 +833,7 @@ def flatten_resume_content(content: dict) -> str:
 
 def _evaluate(content: dict, jd_text: str) -> _Evaluation:
     return (
-        get_openrouter_llm(max_tokens=2048)
+        get_dashscope_llm(max_tokens=2048)
         .with_structured_output(_Evaluation)
         .invoke(EVAL_PROMPT.format(jd_text=jd_text, resume_text=flatten_resume_content(content)))
     )
@@ -843,7 +843,7 @@ def _reframe(slots: list[_Slot], jd_text: str) -> _ReframeResult:
     if not slots:
         return _ReframeResult()
     return (
-        get_openrouter_llm(max_tokens=4096)
+        get_dashscope_llm(max_tokens=4096)
         .with_structured_output(_ReframeResult)
         .invoke(
             REFRAME_PROMPT.format(
@@ -967,7 +967,7 @@ def gap_turn(
     """
     refs = _build_entry_refs(content)
     result = (
-        get_openrouter_llm(max_tokens=3072)
+        get_dashscope_llm(max_tokens=3072)
         .with_structured_output(_GapTurnResult)
         .invoke(
             GAP_TURN_PROMPT.format(

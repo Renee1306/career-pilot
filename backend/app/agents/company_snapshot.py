@@ -1,4 +1,4 @@
-from app.agents._llm import get_llm
+from app.agents._llm import get_dashscope_llm
 from app.models.application_model import CompanySnapshot
 
 COMPANY_SNAPSHOT_PROMPT = """
@@ -104,7 +104,7 @@ Return the result using the provided CompanySnapshot structured output schema.
 def generate_snapshot(company: str, position: str | None, jd_text: str | None) -> CompanySnapshot:
     position_clause = f" for a {position} role" if position else ""
     jd_clause = f"Job description for context:\n{jd_text}" if jd_text else ""
-    structured_llm = get_llm().with_structured_output(CompanySnapshot)
+    structured_llm = get_dashscope_llm().with_structured_output(CompanySnapshot)
     return structured_llm.invoke(
         COMPANY_SNAPSHOT_PROMPT.format(company=company, position_clause=position_clause, jd_clause=jd_clause)
     )

@@ -1,4 +1,4 @@
-from app.agents._llm import get_llm
+from app.agents._llm import get_dashscope_llm
 from app.models.gmail_model import EmailClassification
 
 MAX_CONCURRENT_CLASSIFICATIONS = 5
@@ -172,6 +172,6 @@ def classify_emails(emails: list[tuple[str, str, str]]) -> list[EmailClassificat
     call-durations instead of n). Order of results matches the order of `emails`."""
     if not emails:
         return []
-    structured_llm = get_llm().with_structured_output(EmailClassification)
+    structured_llm = get_dashscope_llm().with_structured_output(EmailClassification)
     prompts = [GMAIL_CLASSIFICATION_PROMPT.format(subject=subject, sender=sender, body=body) for subject, sender, body in emails]
     return structured_llm.batch(prompts, config={"max_concurrency": MAX_CONCURRENT_CLASSIFICATIONS})
