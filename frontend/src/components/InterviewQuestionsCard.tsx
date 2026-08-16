@@ -22,6 +22,14 @@ const ROUND_BLURBS: Record<InterviewRoundType, string> = {
     "Whether you can do this specific job — your past work, the decisions you made, and how it maps to the role.",
 };
 
+const PRIORITY_LABELS: Record<"high" | "medium" | "lower", string> = {
+  high: "High priority",
+  medium: "Medium priority",
+  lower: "Lower priority",
+};
+
+const QUESTIONS_PER_PAGE = 5;
+
 export default function InterviewQuestionsCard({
   application,
   job,
@@ -42,6 +50,7 @@ export default function InterviewQuestionsCard({
   const [round, setRound] = useState<InterviewRoundType>("behavioural");
   const [loading, setLoading] = useState<InterviewRoundType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     listJobDescriptions()
@@ -77,6 +86,7 @@ export default function InterviewQuestionsCard({
     setLoading(roundType);
     setError(null);
     setRound(roundType);
+    setPage(0);
     try {
       onUpdated(await generateInterviewQuestions(application.id, roundType, jdText, resumeDocId));
     } catch (err) {
@@ -188,7 +198,10 @@ export default function InterviewQuestionsCard({
                 key={key}
                 type="button"
                 className={"tab-button" + (round === key ? " active" : "")}
-                onClick={() => setRound(key)}
+                onClick={() => {
+                  setRound(key);
+                  setPage(0);
+                }}
               >
                 {ROUND_LABELS[key]}
               </button>
@@ -201,13 +214,23 @@ export default function InterviewQuestionsCard({
           <p className="muted" style={{ fontSize: 12, margin: "14px 0 0" }}>
             {ROUND_BLURBS[round]} These aren't scripts — prepare each one in your own words.
           </p>
-          <ol className="qna-list">
-            {current.questions.map((item, i) => (
-              <li key={i} className="qna-card">
+          <ol className="qna-list" start={page * QUESTIONS_PER_PAGE + 1}>
+            {current.questions.slice(page * QUESTIONS_PER_PAGE, page * QUESTIONS_PER_PAGE + QUESTIONS_PER_PAGE).map((item, i) => (
+              <li key={page * QUESTIONS_PER_PAGE + i} className="qna-card">
                 <div className="qna-question">
-                  <span className="qna-question-number">{i + 1}</span>
+                  <span className="qna-question-number">{page * QUESTIONS_PER_PAGE + i + 1}</span>
                   <span>{item.question}</span>
                 </div>
+                {(item.category || item.priority) && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginLeft: 32, marginTop: 6 }}>
+                    {item.category && <span className="badge badge-muted">{item.category}</span>}
+                    {item.priority && (
+                      <span className={`badge ${item.priority === "high" ? "badge-primary" : "badge-muted"}`}>
+                        {PRIORITY_LABELS[item.priority]}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {item.answer_should_cover.length > 0 && (
                   <>
                     <div className="qna-label" style={{ marginLeft: 32, marginTop: 10 }}>
@@ -229,6 +252,34 @@ export default function InterviewQuestionsCard({
               </li>
             ))}
           </ol>
+
+          {current.questions.length > QUESTIONS_PER_PAGE && (
+            <div className="form-row" style={{ justifyContent: "center", alignItems: "center", gap: 12, marginTop: 14 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
+                ← Previous
+              </button>
+              <span className="muted" style={{ fontSize: 12 }}>
+                Page {page + 1} of {Math.ceil(current.questions.length / QUESTIONS_PER_PAGE)}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() =>
+                  setPage((p) =>
+                    Math.min(Math.ceil(current.questions.length / QUESTIONS_PER_PAGE) - 1, p + 1)
+                  )
+                }
+                disabled={page >= Math.ceil(current.questions.length / QUESTIONS_PER_PAGE) - 1}
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </>
       ) : (
         !loading && (

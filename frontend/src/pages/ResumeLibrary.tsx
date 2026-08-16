@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ConfirmDialog from "../components/ConfirmDialog";
 import IconPopover from "../components/IconPopover";
 import {
   createResumeDocument,
@@ -62,6 +63,8 @@ export default function ResumeLibrary() {
   const [importing, setImporting] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<ResumeDocumentListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
   // This page is the source of truth for the list (create/rename/duplicate/delete all happen
@@ -120,14 +123,17 @@ export default function ResumeLibrary() {
     }
   };
 
-  const handleDelete = async (id: string, close: () => void) => {
-    if (!confirm("Delete this resume? This cannot be undone.")) return;
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await deleteResumeDocument(id);
+      await deleteResumeDocument(pendingDelete.id);
       load();
-      close();
+      setPendingDelete(null);
     } catch {
       setError("Failed to delete resume");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -237,7 +243,10 @@ export default function ResumeLibrary() {
                     <button
                       type="button"
                       className="menu-item menu-item-danger"
-                      onClick={() => handleDelete(doc.id, close)}
+                      onClick={() => {
+                        setPendingDelete(doc);
+                        close();
+                      }}
                     >
                       <IconTrash />
                       Delete
@@ -254,6 +263,16 @@ export default function ResumeLibrary() {
         <p className="muted" style={{ marginTop: 20 }}>
           No resumes yet — click "+ New Resume" to build your first one.
         </p>
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete this resume?"
+          message={`"${pendingDelete.name}" will be permanently deleted. This cannot be undone.`}
+          busy={deleting}
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </div>
   );

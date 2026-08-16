@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import JDCoachPanel from "../components/resume-builder/JDCoachPanel";
+import CoverLetterPanel from "../components/resume-builder/CoverLetterPanel";
+import JDCoachPanel, { INITIAL_JD_COACH_STATE, type JDCoachState } from "../components/resume-builder/JDCoachPanel";
 import ResumePreview from "../components/resume-builder/ResumePreview";
 import SectionList from "../components/resume-builder/SectionList";
 import StylePanel from "../components/resume-builder/StylePanel";
@@ -29,11 +30,15 @@ export default function ResumeEditor() {
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
-  const [rail, setRail] = useState<"style" | "coach">("style");
+  const [rail, setRail] = useState<"style" | "coach" | "cover-letter">("style");
   const [railOpen, setRailOpen] = useState(true);
   // Pending JD suggestions. These live only for the session and are deliberately NOT part of the
   // saved document - a hint is an offer, and the resume only changes when one is accepted.
   const [hints, setHints] = useState<ResumeHint[]>([]);
+  // The JD Coach's own in-progress review (JD text, match score, gap-interview transcripts, ...).
+  // Lifted here rather than local to JDCoachPanel so switching to Style/Cover Letter (or hiding
+  // the rail) and back doesn't wipe out a half-finished review - see JDCoachState.
+  const [coachState, setCoachState] = useState<JDCoachState>(INITIAL_JD_COACH_STATE);
 
   const loadedRef = useRef(false);
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -173,6 +178,13 @@ export default function ResumeEditor() {
                   Tailor to JD
                   {hints.length > 0 && <span className="builder-rail-count">{hints.length}</span>}
                 </button>
+                <button
+                  type="button"
+                  className={`builder-rail-tab${rail === "cover-letter" ? " is-active" : ""}`}
+                  onClick={() => setRail("cover-letter")}
+                >
+                  Cover Letter
+                </button>
               </div>
               <button
                 type="button"
@@ -188,8 +200,16 @@ export default function ResumeEditor() {
             <div className="builder-rail-body">
               {rail === "style" ? (
                 <StylePanel style={state.style} onChange={(style) => setState({ ...state, style })} />
+              ) : rail === "coach" ? (
+                <JDCoachPanel
+                  documentId={documentId}
+                  hints={hints}
+                  onHintsChange={setHints}
+                  coachState={coachState}
+                  onCoachStateChange={setCoachState}
+                />
               ) : (
-                <JDCoachPanel documentId={documentId} hints={hints} onHintsChange={setHints} />
+                <CoverLetterPanel documentId={documentId} />
               )}
             </div>
           </div>

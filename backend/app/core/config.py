@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # LangSmith's own auto-instrumentation (wired into every langchain-core Runnable, which is what
-# get_llm()/.with_structured_output()/RunnableParallel all are) looks for these directly in
+# get_gemini_llm_2()/.with_structured_output()/RunnableParallel all are) looks for these directly in
 # os.environ. Setting them here - rather than relying on .env alone - means tracing turns on
 # for every agent call with zero code changes in app/agents/*, as long as the two env vars below
 # are set in backend/.env.

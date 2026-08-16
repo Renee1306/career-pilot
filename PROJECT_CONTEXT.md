@@ -63,9 +63,9 @@ career-pilot/
 │   │   │   ├── jobs_router.py, applications_router.py, resume_documents_router.py
 │   │   ├── services/               business logic + Supabase queries
 │   │   │   ├── job_service.py, application_service.py, resume_document_service.py
-│   │   └── agents/                 LangChain calls, one file per AI task (Gemini via get_llm(), or
+│   │   └── agents/                 LangChain calls, one file per AI task (Gemini via get_gemini_llm_2(), or
 │   │       │                        OpenRouter/Nemotron via get_openrouter_llm() — see "AI agents" below)
-│   │       ├── _llm.py             get_llm()/get_openrouter_llm() — the ONE place model names are set
+│   │       ├── _llm.py             get_gemini_llm_2()/get_openrouter_llm() — the ONE place model names are set
 │   │       ├── job_explainer.py    JD text → JobExplanation (5-section format, see below)
 │   │       ├── typical_day.py      JD text → TypicalDay (5-section format, see below)
 │   │       ├── translator.py       re-runs job_explainer's output through the model in another language
@@ -243,7 +243,7 @@ all-or-nothing gate message.
 
 ## AI agents — what each one does and how it's prompted
 
-Most agents use `app/agents/_llm.py::get_llm()`, currently `gemini-flash-lite-latest`. **Do not
+Most agents use `app/agents/_llm.py::get_gemini_llm_2()`, currently `gemini-flash-lite-latest`. **Do not
 casually swap this** — see "Gemini model/quota gotcha" below. Two agents (`jd_coach`,
 `summary_generator`) instead use the sibling factory `get_openrouter_llm()` (NVIDIA Nemotron 3
 Ultra via OpenRouter) — see "OpenRouter / Nemotron" below for why and its gotchas. `chat_assistant`
@@ -331,10 +331,10 @@ the browser console with no hint that it's actually a billing issue on the backe
 ### OpenRouter / Nemotron (jd_coach + summary_generator only)
 
 `app/agents/_llm.py::get_openrouter_llm(model="nvidia/nemotron-3-ultra-550b-a55b")` is a second,
-separate LLM factory alongside `get_llm()` — `ChatOpenAI` pointed at OpenRouter's OpenAI-compatible
+separate LLM factory alongside `get_gemini_llm_2()` — `ChatOpenAI` pointed at OpenRouter's OpenAI-compatible
 endpoint (`base_url="https://openrouter.ai/api/v1"`) rather than a dedicated OpenRouter SDK. Needs
 `OPENROUTER_API_KEY` in `backend/.env`. Used by `jd_coach` and `summary_generator`; every other
-agent stays on Gemini via `get_llm()`. `.with_structured_output(...)` works fine against it too
+agent stays on Gemini via `get_gemini_llm_2()`. `.with_structured_output(...)` works fine against it too
 (goes through OpenAI-style function calling under the hood).
 
 **Gotcha 1 — max_tokens**: leaving it unset makes `ChatOpenAI` request this model's full
@@ -387,7 +387,7 @@ edited again, grep for its own placeholders after editing, not just for the new 
 `app/core/config.py` calls `load_dotenv(BACKEND_DIR / ".env")` and, if `LANGCHAIN_TRACING_V2` +
 `LANGCHAIN_API_KEY` are set, pushes `LANGCHAIN_TRACING_V2`/`LANGCHAIN_API_KEY`/`LANGCHAIN_PROJECT`
 into `os.environ`. That's the entire integration — LangSmith's tracing is wired into every
-`langchain-core` `Runnable` (which is what `get_llm()`, `.with_structured_output(...)`, and
+`langchain-core` `Runnable` (which is what `get_gemini_llm_2()`, `.with_structured_output(...)`, and
 `RunnableParallel` all produce), so every agent call is traced automatically once those env vars
 are in the process environment. No code in `app/agents/*` references LangSmith at all. `settings`
 alone (a pydantic-settings object) is *not* enough for this — LangSmith reads `os.environ`
@@ -816,7 +816,7 @@ operations (`PATCH`/`DELETE /applications/{id}/timeline/{entry_id}`), not read-m
 shared array like the old `add_timeline_entry` was.
 
 **Company Snapshot replaces Interview Prep**: `agents/company_snapshot.py::generate_snapshot(
-company, position, jd_text)` — same `get_llm().with_structured_output(...)` pattern and the same
+company, position, jd_text)` — same `get_gemini_llm_2().with_structured_output(...)` pattern and the same
 explicit "this is general/estimated knowledge, not verified insider information, never invent
 specific internal processes" caveat framing as `typical_day.py`'s "surprises" field (this content
 is **not grounded in any fetched/live data** — pure model knowledge — so the honesty framing
@@ -913,7 +913,7 @@ endpoints it left behind (`GET`/`POST /resumes`, `GET /resumes/{id}`) were remov
 later cleanup pass that dropped the `resumes` table - `applications.resume_id` became
 `applications.resume_document_id`, pointing at `resume_documents` instead, and Interview
 Questions' fallback (see below) now reads that column. `resume_importer` is still the one Resume
-Builder agent on **Gemini** (`get_llm()`) rather than OpenRouter, because extraction is
+Builder agent on **Gemini** (`get_gemini_llm_2()`) rather than OpenRouter, because extraction is
 multimodal and Nemotron is text-only.
 
 Two structural details worth keeping: (1) the LLM-facing schema mirrors `ResumeContent`'s sections

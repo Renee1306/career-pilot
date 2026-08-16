@@ -1,17 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import {
   jobOptionLabel,
   listJobDescriptions,
   reviewResumeForJD,
   runGapTurn,
+  runQuantifyTurn,
   type CoachMessage,
   type JDGap,
   type JDReview,
   type JobDescriptionOut,
+  type QuantifyCandidate,
   type ResumeHint,
 } from "../../lib/api";
 
 type Phase = "input" | "reviewing" | "review";
+
+const GAP_CATEGORY_LABELS: Record<JDGap["category"], string> = {
+  hard_skill: "Hard skill",
+  soft_skill: "Soft skill",
+  industry_term: "Industry term",
+};
 
 /** Per-gap conversation state. A gap is only ever in one of these:
  *  - "open"     - not started yet.
@@ -27,22 +35,47 @@ interface GapState {
 
 const NEW_GAP: GapState = { status: "open", history: [], draft: "", busy: false };
 
+/** Everything about an in-progress JD review that has to survive the panel unmounting - switching
+ *  to the Style or Cover Letter rail tab (or hiding the rail entirely) previously reset all of
+ *  this back to a blank "paste a JD" screen, silently discarding a half-finished gap interview.
+ *  Owned by ResumeEditor (same lifting `hints` already gets) rather than local useState here, so
+ *  it outlives this component's mount lifecycle. */
+export interface JDCoachState {
+  phase: Phase;
+  jdText: string;
+  selectedJobId: string;
+  review: JDReview | null;
+  gapStates: Record<string, GapState>;
+  quantifyStates: Record<string, GapState>;
+}
+
+export const INITIAL_JD_COACH_STATE: JDCoachState = {
+  phase: "input",
+  jdText: "",
+  selectedJobId: "",
+  review: null,
+  gapStates: {},
+  quantifyStates: {},
+};
+
 export default function JDCoachPanel({
   documentId,
   hints,
   onHintsChange,
+  coachState,
+  onCoachStateChange,
 }: {
   documentId: string;
   hints: ResumeHint[];
   onHintsChange: (hints: ResumeHint[]) => void;
+  coachState: JDCoachState;
+  onCoachStateChange: Dispatch<SetStateAction<JDCoachState>>;
 }) {
-  const [phase, setPhase] = useState<Phase>("input");
-  const [jdText, setJdText] = useState("");
+  const { phase, jdText, selectedJobId, review, gapStates, quantifyStates } = coachState;
   const [savedJobs, setSavedJobs] = useState<JobDescriptionOut[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState("");
-  const [review, setReview] = useState<JDReview | null>(null);
-  const [gapStates, setGapStates] = useState<Record<string, GapState>>({});
   const [error, setError] = useState<string | null>(null);
+
+  const patchState = (patch: Partial<JDCoachState>) => onCoachStateChange((prev) => ({ ...prev, ...patch }));
 
   useEffect(() => {
     listJobDescriptions()
@@ -51,28 +84,35 @@ export default function JDCoachPanel({
   }, []);
 
   const handlePickSaved = (jobId: string) => {
-    setSelectedJobId(jobId);
     const picked = savedJobs.find((j) => j.id === jobId);
-    if (picked) setJdText(picked.raw_text);
+    patchState({ selectedJobId: jobId, jdText: picked ? picked.raw_text : jdText });
   };
 
   const gapState = (id: string) => gapStates[id] ?? NEW_GAP;
   const patchGap = (id: string, patch: Partial<GapState>) =>
-    setGapStates((prev) => ({ ...prev, [id]: { ...(prev[id] ?? NEW_GAP), ...patch } }));
+    onCoachStateChange((prev) => ({
+      ...prev,
+      gapStates: { ...prev.gapStates, [id]: { ...(prev.gapStates[id] ?? NEW_GAP), ...patch } },
+    }));
+
+  const quantifyState = (id: string) => quantifyStates[id] ?? NEW_GAP;
+  const patchQuantify = (id: string, patch: Partial<GapState>) =>
+    onCoachStateChange((prev) => ({
+      ...prev,
+      quantifyStates: { ...prev.quantifyStates, [id]: { ...(prev.quantifyStates[id] ?? NEW_GAP), ...patch } },
+    }));
 
   const handleReview = async () => {
     if (!jdText.trim()) return;
-    setPhase("reviewing");
+    patchState({ phase: "reviewing" });
     setError(null);
     try {
       const result = await reviewResumeForJD(documentId, jdText);
-      setReview(result);
-      setGapStates({});
       onHintsChange(result.hints);
-      setPhase("review");
+      patchState({ review: result, gapStates: {}, quantifyStates: {}, phase: "review" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to review this resume");
-      setPhase("input");
+      patchState({ phase: "input" });
     }
   };
 
@@ -111,11 +151,35 @@ export default function JDCoachPanel({
     }
   };
 
+  // Same stateless shape as sendGapTurn - the only difference is what's being confirmed, a
+  // number instead of a skill.
+  const sendQuantifyTurn = async (candidate: QuantifyCandidate, answer: string | null) => {
+    if (!review) return;
+    const state = quantifyState(candidate.id);
+    const history = answer === null ? state.history : [...state.history, { role: "user" as const, content: answer }];
+
+    patchQuantify(candidate.id, { status: "asking", history, draft: "", busy: true });
+    setError(null);
+    try {
+      const turn = await runQuantifyTurn(documentId, { candidate, history });
+      const withReply = [...history, { role: "assistant" as const, content: turn.message }];
+
+      if (turn.status === "ready") {
+        onHintsChange([...hints, ...turn.hints]);
+        patchQuantify(candidate.id, { status: "resolved", history: withReply, busy: false });
+      } else if (turn.status === "declined") {
+        patchQuantify(candidate.id, { status: "declined", history: withReply, busy: false });
+      } else {
+        patchQuantify(candidate.id, { status: "asking", history: withReply, busy: false });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to continue that conversation");
+      patchQuantify(candidate.id, { busy: false });
+    }
+  };
+
   const startOver = () => {
-    setPhase("input");
-    setReview(null);
-    setGapStates({});
-    setSelectedJobId("");
+    patchState({ phase: "input", review: null, gapStates: {}, quantifyStates: {}, selectedJobId: "" });
     onHintsChange([]);
   };
 
@@ -161,10 +225,7 @@ export default function JDCoachPanel({
             className="input"
             rows={10}
             value={jdText}
-            onChange={(e) => {
-              setJdText(e.target.value);
-              setSelectedJobId("");
-            }}
+            onChange={(e) => patchState({ jdText: e.target.value, selectedJobId: "" })}
             placeholder="Paste the job description here..."
             disabled={phase === "reviewing"}
           />
@@ -237,6 +298,26 @@ export default function JDCoachPanel({
             </div>
           )}
 
+          <div className="section-title" style={{ marginTop: 18 }}>
+            Bullets that could use a number
+          </div>
+          {review.quantify_candidates.length === 0 ? (
+            <p className="muted jdc-empty">Every bullet already has a number backing it up.</p>
+          ) : (
+            <div className="stack" style={{ gap: 10 }}>
+              {review.quantify_candidates.map((candidate) => (
+                <QuantifyCard
+                  key={candidate.id}
+                  candidate={candidate}
+                  state={quantifyState(candidate.id)}
+                  onStart={() => sendQuantifyTurn(candidate, null)}
+                  onAnswer={(answer) => sendQuantifyTurn(candidate, answer)}
+                  onDraftChange={(draft) => patchQuantify(candidate.id, { draft })}
+                />
+              ))}
+            </div>
+          )}
+
           <button type="button" className="btn btn-ghost btn-sm" style={{ marginTop: 16 }} onClick={startOver}>
             ← Use a different JD
           </button>
@@ -259,6 +340,76 @@ function GapCard({
   onAnswer: (answer: string) => void;
   onDraftChange: (draft: string) => void;
 }) {
+  return (
+    <CoachCard
+      title={gap.title}
+      badge={<span className="badge badge-muted">{GAP_CATEGORY_LABELS[gap.category]}</span>}
+      detail={gap.detail}
+      state={state}
+      startLabel="Do I have this?"
+      resolvedLabel="Added"
+      declinedLabel="Left off"
+      onStart={onStart}
+      onAnswer={onAnswer}
+      onDraftChange={onDraftChange}
+    />
+  );
+}
+
+function QuantifyCard({
+  candidate,
+  state,
+  onStart,
+  onAnswer,
+  onDraftChange,
+}: {
+  candidate: QuantifyCandidate;
+  state: GapState;
+  onStart: () => void;
+  onAnswer: (answer: string) => void;
+  onDraftChange: (draft: string) => void;
+}) {
+  return (
+    <CoachCard
+      title={candidate.entry_label}
+      detail={candidate.text}
+      state={state}
+      startLabel="Add a number?"
+      resolvedLabel="Quantified"
+      declinedLabel="Left as-is"
+      onStart={onStart}
+      onAnswer={onAnswer}
+      onDraftChange={onDraftChange}
+    />
+  );
+}
+
+/** Shared shell for a one-topic back-and-forth: a title, an optional status badge, the
+ *  thing being discussed, and the asking/resolved/declined states GapCard and QuantifyCard both
+ *  drive off the same GapState shape. */
+function CoachCard({
+  title,
+  badge,
+  detail,
+  state,
+  startLabel,
+  resolvedLabel,
+  declinedLabel,
+  onStart,
+  onAnswer,
+  onDraftChange,
+}: {
+  title: string;
+  badge?: ReactNode;
+  detail: string;
+  state: GapState;
+  startLabel: string;
+  resolvedLabel: string;
+  declinedLabel: string;
+  onStart: () => void;
+  onAnswer: (answer: string) => void;
+  onDraftChange: (draft: string) => void;
+}) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -273,26 +424,27 @@ function GapCard({
   return (
     <div className="subcard jdc-gap">
       <div className="jdc-gap-title">
-        {gap.title}
-        {state.status === "resolved" && <span className="badge jdc-badge-ok">Added</span>}
-        {state.status === "declined" && <span className="badge">Left off</span>}
+        {title}
+        {badge}
+        {state.status === "resolved" && <span className="badge jdc-badge-ok">{resolvedLabel}</span>}
+        {state.status === "declined" && <span className="badge">{declinedLabel}</span>}
       </div>
-      <p className="jdc-gap-detail">{gap.detail}</p>
+      <p className="jdc-gap-detail">{detail}</p>
 
       {state.status === "open" && (
         <button type="button" className="btn btn-secondary btn-sm" onClick={onStart}>
-          Do I have this?
+          {startLabel}
         </button>
       )}
 
-      {state.history.length > 0 && (
+      {(state.history.length > 0 || state.busy) && (
         <div className="jdc-thread">
           {state.history.map((message, i) => (
             <div key={i} className={message.role === "user" ? "jdc-msg-user" : "jdc-msg-bot"}>
               {message.content}
             </div>
           ))}
-          {state.busy && <div className="jdc-msg-bot jdc-msg-typing">Thinking…</div>}
+          {state.busy && <div className="jdc-msg-bot jdc-msg-typing">Connecting to agent…</div>}
           <div ref={endRef} />
         </div>
       )}

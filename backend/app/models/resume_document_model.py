@@ -248,6 +248,22 @@ class JDMatchRequest(BaseModel):
     jd_text: str
 
 
+class CoverLetterRequest(BaseModel):
+    jd_text: str
+    company: str | None = None
+    position: str | None = None
+
+
+class CoverLetterResponse(BaseModel):
+    text: str
+
+
+class CoverLetterExportRequest(BaseModel):
+    text: str
+    company: str | None = None
+    position: str | None = None
+
+
 HintTarget = Literal["summary", "work_experience", "projects", "skills"]
 
 
@@ -279,7 +295,10 @@ class ResumeHint(BaseModel):
     original_text: str = ""
     suggested_text: str = ""
     reason: str = ""
-    source: Literal["reframe", "gap"] = "reframe"
+    source: Literal["reframe", "gap", "quantify"] = "reframe"
+
+
+GapCategory = Literal["hard_skill", "soft_skill", "industry_term"]
 
 
 class JDGap(BaseModel):
@@ -289,6 +308,20 @@ class JDGap(BaseModel):
     id: str
     title: str
     detail: str
+    category: GapCategory = "hard_skill"
+
+
+class QuantifyCandidate(BaseModel):
+    """One resume bullet that reads as an accomplishment but carries no number - the gap the
+    quantify interview exists to close, detected without an LLM call since it's just presence
+    or absence of a digit in the bullet text."""
+
+    id: str
+    target: Literal["work_experience", "projects"]
+    entry_id: str | None = None
+    entry_label: str = ""
+    bullet_index: int | None = None
+    text: str = ""
 
 
 class JDReview(BaseModel):
@@ -296,6 +329,7 @@ class JDReview(BaseModel):
     strengths: list[str] = Field(default_factory=list)
     gaps: list[JDGap] = Field(default_factory=list)
     hints: list[ResumeHint] = Field(default_factory=list)
+    quantify_candidates: list[QuantifyCandidate] = Field(default_factory=list)
 
 
 class CoachMessage(BaseModel):
@@ -307,6 +341,11 @@ class GapTurnRequest(BaseModel):
     jd_text: str
     gap: JDGap
     strengths: list[str] = Field(default_factory=list)
+    history: list[CoachMessage] = Field(default_factory=list)
+
+
+class QuantifyTurnRequest(BaseModel):
+    candidate: QuantifyCandidate
     history: list[CoachMessage] = Field(default_factory=list)
 
 

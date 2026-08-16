@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 QnARoundType = Literal["behavioural", "hiring_manager"]
 
 
+QuestionPriority = Literal["high", "medium", "lower"]
+
+
 class QnAItem(BaseModel):
     """Deliberately holds no written answer. The candidate gets the question plus the shape of a
     good response, so they walk in able to answer in their own words and defend a follow-up."""
@@ -22,7 +25,19 @@ class QnAItem(BaseModel):
         description="The specific experience on the candidate's resume to build this answer from, "
         "named as it appears there",
     )
+    category: str = Field(
+        default="",
+        description="Short competency label for this question, e.g. Leadership, Problem-Solving, "
+        "Technical Depth - vocabulary appropriate to the round type",
+    )
+    priority: QuestionPriority = Field(
+        default="medium",
+        description="How likely the candidate is to actually be asked this in the round",
+    )
 
 
 class InterviewQnA(BaseModel):
-    questions: list[QnAItem] = Field(description="5-10 likely questions for this interview round")
+    questions: list[QnAItem] = Field(
+        description="5-10 likely questions for this interview round - exactly 10 for the "
+        "hiring_manager round"
+    )

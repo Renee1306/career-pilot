@@ -35,10 +35,15 @@ GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
 SCOPES = "https://www.googleapis.com/auth/gmail.readonly openid email"
 
 # Search-side filtering, evaluated by Gmail before anything is fetched/classified: recent,
-# not chat, not promo/social, and subject actually looks application-related. Keeps the AI
-# classification step to a small, genuinely-likely-relevant set instead of every recent email.
+# not chat, not promo/social, not our own outgoing mail, and subject actually looks
+# application-related. `-in:sent` matters beyond noise reduction: the classifier prompt and every
+# example in it assume the email is FROM the company TO the candidate (confirmation, interview
+# invite, offer, rejection) - it has no signal to tell an outgoing "just checking in" email apart
+# from a real employer update, so a sent email slipping through risks a misread status change
+# rather than just a wasted classification call. Keeps the AI classification step to a small,
+# genuinely-likely-relevant set instead of every recent email.
 GMAIL_QUERY = (
-    "newer_than:90d -in:chat -category:promotions -category:social "
+    "newer_than:30d -in:chat -in:sent -category:promotions -category:social "
     '(subject:(application OR interview OR "thank you for applying" OR assessment OR offer OR '
     'position OR recruiter OR "next steps" OR "move forward"))'
 )
@@ -260,7 +265,7 @@ def _mark_processed(client: Client, user_id: str, gmail_message_id: str) -> None
 
 
 def sync_gmail(
-    client: Client, user_id: str, max_results: int = 15, timezone_name: str | None = None
+    client: Client, user_id: str, max_results: int = 30, timezone_name: str | None = None
 ) -> GmailSyncResult:
     state = get_sync_state(client, user_id)
     if state is None or not state.get("refresh_token"):

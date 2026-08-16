@@ -50,10 +50,17 @@ class TimelineEntryOut(BaseModel):
 
 
 class CompanySnapshot(BaseModel):
+    what_they_do: str = ""
+    products_services: list[str] = Field(default_factory=list)
+    industry: str = ""
+    scale_regions: str = ""
+    scale_employees: str = ""
+    scale_customer_base: str = ""
+    scale_market_position: str = ""
+    core_business_areas: list[str] = Field(default_factory=list)
+    core_products: list[str] = Field(default_factory=list)
     culture: str
     core_values: list[str] = Field(default_factory=list)
-    engineering_focus: str
-    interview_themes: list[str] = Field(default_factory=list)
 
 
 class InterviewQuestionsRequest(BaseModel):

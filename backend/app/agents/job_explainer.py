@@ -83,6 +83,8 @@ actually named in the JD.
 <rule>Use simple language.</rule>
 <rule>Do not assume the candidate has any particular skill.</rule>
 <rule>Keep the output concise and practical.</rule>
+<rule>Write the entire response in English, regardless of what language the job description is
+written in.</rule>
 </constraints>
 
 <output>

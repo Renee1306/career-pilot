@@ -1,5 +1,6 @@
 import { useEffect, useState, type DragEvent } from "react";
 import { Link } from "react-router-dom";
+import ConfirmDialog from "../components/ConfirmDialog";
 import GmailSync from "../components/GmailSync";
 import IconPopover from "../components/IconPopover";
 import {
@@ -58,6 +59,10 @@ export default function Applications() {
   const [resumeDocumentId, setResumeDocumentId] = useState("");
   const [creating, setCreating] = useState(false);
   const [dragOverStatus, setDragOverStatus] = useState<ApplicationStatus | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ app: ApplicationOut; job: JobDescriptionOut | undefined } | null>(
+    null
+  );
+  const [deleting, setDeleting] = useState(false);
 
   const loadAll = () => {
     Promise.all([listApplications(), listJobDescriptions(), listResumeDocuments()])
@@ -105,14 +110,18 @@ export default function Applications() {
     }
   };
 
-  const handleDelete = async (app: ApplicationOut, job: JobDescriptionOut | undefined) => {
-    if (!window.confirm(`Remove ${cardCompany(app, job)} from your applications? This can't be undone.`)) return;
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
     setError(null);
     try {
-      await deleteApplication(app.id);
+      await deleteApplication(pendingDelete.app.id);
       loadAll();
+      setPendingDelete(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete application");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -246,7 +255,7 @@ export default function Applications() {
                       className="board-card-delete"
                       title="Remove application"
                       aria-label="Remove application"
-                      onClick={() => handleDelete(app, job)}
+                      onClick={() => setPendingDelete({ app, job })}
                     >
                       &minus;
                     </button>
@@ -267,6 +276,17 @@ export default function Applications() {
           );
         })}
       </div>
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Remove this application?"
+          message={`Remove ${cardCompany(pendingDelete.app, pendingDelete.job)} from your applications? This can't be undone.`}
+          confirmLabel="Remove"
+          busy={deleting}
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </div>
   );

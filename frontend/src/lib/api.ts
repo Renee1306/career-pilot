@@ -2,7 +2,7 @@ import { supabase } from "./supabaseClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-async function authedFetch(path: string, options: RequestInit = {}) {
+async function authedFetchRaw(path: string, options: RequestInit = {}) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -19,6 +19,11 @@ async function authedFetch(path: string, options: RequestInit = {}) {
     const body = await response.text();
     throw new Error(`Request failed (${response.status}): ${body}`);
   }
+  return response;
+}
+
+async function authedFetch(path: string, options: RequestInit = {}) {
+  const response = await authedFetchRaw(path, options);
   return response.json();
 }
 
@@ -517,13 +522,23 @@ export interface ResumeHint {
   original_text: string;
   suggested_text: string;
   reason: string;
-  source: "reframe" | "gap";
+  source: "reframe" | "gap" | "quantify";
 }
 
 export interface JDGap {
   id: string;
   title: string;
   detail: string;
+  category: "hard_skill" | "soft_skill" | "industry_term";
+}
+
+export interface QuantifyCandidate {
+  id: string;
+  target: "work_experience" | "projects";
+  entry_id: string | null;
+  entry_label: string;
+  bullet_index: number | null;
+  text: string;
 }
 
 export interface JDReview {
@@ -531,6 +546,7 @@ export interface JDReview {
   strengths: string[];
   gaps: JDGap[];
   hints: ResumeHint[];
+  quantify_candidates: QuantifyCandidate[];
 }
 
 export interface CoachMessage {
@@ -561,6 +577,57 @@ export function runGapTurn(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+export function runQuantifyTurn(
+  id: string,
+  payload: { candidate: QuantifyCandidate; history: CoachMessage[] }
+): Promise<GapTurnResponse> {
+  return authedFetch(`/resume-documents/${id}/quantify-turn`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export interface CoverLetterResponse {
+  text: string;
+}
+
+export function generateCoverLetter(
+  id: string,
+  payload: { jd_text: string; company?: string; position?: string }
+): Promise<CoverLetterResponse> {
+  return authedFetch(`/resume-documents/${id}/cover-letter`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Pulls the filename back out of the response's Content-Disposition header - the backend is the
+ *  only place that knows the candidate's name, so it names the file, not the frontend. Prefers
+ *  the RFC 5987 filename*=UTF-8''... form (handles non-ASCII names) and falls back to the plain
+ *  filename="..." param. */
+function filenameFromContentDisposition(header: string | null, fallback: string): string {
+  if (!header) return fallback;
+  const starMatch = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (starMatch) return decodeURIComponent(starMatch[1]);
+  const plainMatch = header.match(/filename="([^"]+)"/i);
+  return plainMatch ? plainMatch[1] : fallback;
+}
+
+export async function exportCoverLetterDocx(
+  id: string,
+  payload: { text: string; company?: string; position?: string }
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await authedFetchRaw(`/resume-documents/${id}/cover-letter/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const filename = filenameFromContentDisposition(response.headers.get("Content-Disposition"), "Cover Letter.docx");
+  return { blob: await response.blob(), filename };
 }
 
 /** Strips a leading bullet marker a source resume (or a pasted description) may already carry -
@@ -690,10 +757,18 @@ export interface TimelineEntryOut {
 }
 
 export interface CompanySnapshot {
+  // Optional: snapshots generated before these fields existed are still stored without them.
+  what_they_do?: string;
+  products_services?: string[];
+  industry?: string;
+  scale_regions?: string;
+  scale_employees?: string;
+  scale_customer_base?: string;
+  scale_market_position?: string;
+  core_business_areas?: string[];
+  core_products?: string[];
   culture: string;
   core_values: string[];
-  engineering_focus: string;
-  interview_themes: string[];
 }
 
 export type InterviewRoundType = "behavioural" | "hiring_manager";
@@ -704,6 +779,8 @@ export interface QnAItem {
   question: string;
   answer_should_cover: string[];
   draw_on: string;
+  category?: string;
+  priority?: "high" | "medium" | "lower";
 }
 
 export interface InterviewQnA {

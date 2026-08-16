@@ -1,4 +1,4 @@
-from app.agents._llm import get_llm
+from app.agents._llm import get_gemini_llm_2
 from app.models.interview_model import InterviewQnA, QnARoundType
 
 ROUND_FOCUS = {
@@ -26,6 +26,11 @@ Do not invent company facts.
 
 Do not ask deep technical questions.
 </question_style>
+
+<category_vocabulary>
+Label each question with whichever of these it mainly tests: Leadership,
+Problem-Solving, Collaboration, Achievement, Failure & Growth, Motivation.
+</category_vocabulary>
 """,
 
     "hiring_manager": """
@@ -51,6 +56,15 @@ Ground questions in specific resume projects, technologies, and results.
 Include technical depth when supported by the JD.
 Avoid abstract trivia and puzzles.
 </question_style>
+
+<category_vocabulary>
+Label each question with whichever of these it mainly tests: Technical Depth,
+Trade-offs, Ownership, Role Fit, Past Impact.
+</category_vocabulary>
+
+<question_count>
+Generate exactly 10 questions for this round.
+</question_count>
 """
 }
 
@@ -195,6 +209,22 @@ If no relevant resume evidence exists, describe the kind of real example
 the candidate should think of instead.
 </draw_on>
 
+<category>
+Use the category_vocabulary given for this round. Pick the single label that
+best fits what the question is actually testing.
+</category>
+
+<priority>
+Rate how likely the candidate is to actually be asked this, given the JD,
+resume, and round type:
+- "high" - a near-certain question for this role and round
+- "medium" - a reasonably likely question
+- "lower" - possible but not central to this round
+
+Not every question should be "high" - use the full range so the candidate
+knows where to focus first.
+</priority>
+
 </question_requirements>
 
 <quality_rules>
@@ -205,6 +235,8 @@ the candidate should think of instead.
 <rule>Do not generate advanced technical questions unless the JD supports them.</rule>
 <rule>Surface genuine weaknesses rather than hiding them.</rule>
 <rule>When the candidate has a current role, favor it as the source of examples over past roles.</rule>
+<rule>Write every question and preparation point in English, regardless of what language the
+job description or resume is written in.</rule>
 </quality_rules>
 
 <output>
@@ -219,7 +251,7 @@ def generate_interview_qna(
     round_type: QnARoundType,
     company_context: str = "",
 ) -> InterviewQnA:
-    structured_llm = get_llm().with_structured_output(InterviewQnA)
+    structured_llm = get_gemini_llm_2().with_structured_output(InterviewQnA)
     prompt = INTERVIEW_QA_PROMPT.format(
         round_focus=ROUND_FOCUS.get(round_type, ROUND_FOCUS["behavioural"]),
         job_text=job_text,
