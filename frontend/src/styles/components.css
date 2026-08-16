@@ -377,6 +377,15 @@
   background: #ffd9c1;
 }
 
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #b8371f;
+}
+
 .btn-ghost {
   background: transparent;
   color: var(--color-text-muted);
@@ -2588,6 +2597,53 @@ a.list-row-title:hover {
   max-height: 85vh;
 }
 
+/* Small centered "are you sure?" panel - deliberately its own shape rather than a variant of
+   .modal-panel, since it has no header/close button and is sized to its own content. */
+.confirm-dialog {
+  width: min(380px, 100%);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+  padding: 26px 24px 22px;
+  text-align: center;
+}
+
+.confirm-dialog-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+.confirm-dialog-icon-danger {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.confirm-dialog-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.confirm-dialog-message {
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0 0 22px;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
 /* ---------------------------------------------------------------------------
    18. Resume builder: library grid
    --------------------------------------------------------------------------- */
@@ -2737,6 +2793,7 @@ a.list-row-title:hover {
 
 .builder-rail-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 

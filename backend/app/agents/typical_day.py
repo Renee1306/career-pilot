@@ -87,6 +87,8 @@ Clearly label them as estimates or general observations.
 <rule>Base the analysis primarily on the JD.</rule>
 <rule>Use simple language.</rule>
 <rule>Help the candidate decide whether they would enjoy the job.</rule>
+<rule>Write the entire response in English, regardless of what language the job description is
+written in.</rule>
 </constraints>
 
 <output>

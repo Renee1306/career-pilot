@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ConfirmDialog from "./ConfirmDialog";
 import {
   createTimelineEntry,
   deleteTimelineEntry,
@@ -130,6 +131,7 @@ export default function ApplicationTimeline({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const handleAdd = async (entryType: TimelineEntryType, data: EntryFormData) => {
     setBusy(true);
@@ -159,13 +161,14 @@ export default function ApplicationTimeline({
     }
   };
 
-  const handleDelete = async (entryId: string) => {
-    if (!confirm("Delete this timeline entry?")) return;
+  const confirmDelete = async () => {
+    if (!pendingDeleteId) return;
     setBusy(true);
     setError(null);
     try {
-      const updated = await deleteTimelineEntry(applicationId, entryId);
+      const updated = await deleteTimelineEntry(applicationId, pendingDeleteId);
       onChanged(updated);
+      setPendingDeleteId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete entry");
     } finally {
@@ -232,7 +235,7 @@ export default function ApplicationTimeline({
                   type="button"
                   className="link-button"
                   style={{ color: "var(--color-danger)" }}
-                  onClick={() => handleDelete(entry.id)}
+                  onClick={() => setPendingDeleteId(entry.id)}
                 >
                   Delete
                 </button>
@@ -257,6 +260,16 @@ export default function ApplicationTimeline({
             </button>
           ))}
         </div>
+      )}
+
+      {pendingDeleteId && (
+        <ConfirmDialog
+          title="Delete this timeline entry?"
+          message="This entry will be permanently removed from the timeline."
+          busy={busy}
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDeleteId(null)}
+        />
       )}
     </div>
   );

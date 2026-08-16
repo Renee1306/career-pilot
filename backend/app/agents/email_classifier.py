@@ -157,6 +157,7 @@ Otherwise return null.
 <rule>Do not treat generic recruiting or marketing emails as applications.</rule>
 <rule>Use only information contained in the email.</rule>
 <rule>Leave uncertain fields null rather than guessing.</rule>
+<rule>Write the summary field in English, regardless of what language the email is written in.</rule>
 </constraints>
 
 <output>

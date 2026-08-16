@@ -36,6 +36,12 @@ const UNBREAKABLE_SELECTOR = ".resume-entry, .resume-entry-compact, .resume-bull
 // next one, reads just as badly as a mid-entry cut - so a heading additionally needs this much
 // clearance beneath it before a break is allowed to land there.
 const HEADING_KEEP_WITH_NEXT = 32;
+// Note: pages fill to PAGE_HEIGHT with no per-page bottom margin reserved, so the last line on a
+// page can sit close to the sheet edge. Forcing clearance by relocating the trailing unit was
+// tried and reverted - entries are atomic, so the smallest thing that can move is usually a whole
+// heading-plus-entry block, which buys a few pixels of breathing room at the cost of a much larger
+// hole and, on a document near a page boundary, an extra near-empty page. Reserving margin_bottom
+// from every page's budget is the principled fix, but it genuinely repaginates existing resumes.
 
 function renderTemplate(templateId: string, content: ResumeContent, photoUrl: string | null) {
   if (templateId === "sidebar") return <SidebarTemplate content={content} photoUrl={photoUrl} />;
@@ -75,7 +81,11 @@ function computeBreaks(root: HTMLElement, marginTop: number): number[] {
     let y = target;
     for (let guard = 0; guard < forbidden.length + 1; guard++) {
       const hit = forbidden.find(([start, end]) => y > start && y < end);
-      if (!hit) return y;
+      // Every exit path has to return something above `floor`, or the caller's cursor never
+      // advances and its while loop spins forever. Retreating through nested units (a bullet
+      // sits inside its entry) can walk y back past floor, and this path is reachable the moment
+      // that retreat lands somewhere no further zone covers.
+      if (!hit) return y > floor ? y : target;
       y = hit[0];
     }
     // Nothing but forbidden zones between floor and target (e.g. one oversized entry) - fall
@@ -339,7 +349,9 @@ function HintPopover({
     >
       <div className="hint-popover-scope">
         {hint.entry_label}
-        {hint.source === "gap" && <span className="badge">from your answers</span>}
+        {(hint.source === "gap" || hint.source === "quantify") && (
+          <span className="badge">from your answers</span>
+        )}
       </div>
 
       {hint.mode === "replace" ? (

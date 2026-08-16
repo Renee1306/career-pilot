@@ -17,6 +17,10 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Content-Disposition carries the cover-letter export's filename; browsers hide all
+    # response headers from fetch() on a cross-origin request except this default-safe set
+    # unless the server explicitly opts them in here.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(resume_documents_router.router)

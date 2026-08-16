@@ -1,12 +1,18 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 
 from app.middleware.auth import AuthedUser, get_current_user
 from app.models.resume_document_model import (
+    CoverLetterExportRequest,
+    CoverLetterRequest,
+    CoverLetterResponse,
     GapTurnRequest,
     GapTurnResponse,
     GenerateSummaryResponse,
     JDMatchRequest,
     JDReview,
+    QuantifyTurnRequest,
     ResumeDocumentCreate,
     ResumeDocumentListItem,
     ResumeDocumentOut,
@@ -134,3 +140,44 @@ def run_gap_turn(doc_id: str, payload: GapTurnRequest, user: AuthedUser = Depend
     if result is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
     return result
+
+
+@router.post("/{doc_id}/quantify-turn", response_model=GapTurnResponse)
+def run_quantify_turn(doc_id: str, payload: QuantifyTurnRequest, user: AuthedUser = Depends(get_current_user)):
+    result = resume_document_service.run_quantify_turn(
+        user.client, user.id, doc_id, payload.candidate, payload.history
+    )
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
+    return result
+
+
+@router.post("/{doc_id}/cover-letter", response_model=CoverLetterResponse)
+def generate_cover_letter(doc_id: str, payload: CoverLetterRequest, user: AuthedUser = Depends(get_current_user)):
+    text = resume_document_service.generate_cover_letter(
+        user.client, user.id, doc_id, payload.jd_text, payload.company, payload.position
+    )
+    if text is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
+    return CoverLetterResponse(text=text)
+
+
+@router.post("/{doc_id}/cover-letter/export")
+def export_cover_letter(
+    doc_id: str, payload: CoverLetterExportRequest, user: AuthedUser = Depends(get_current_user)
+):
+    result = resume_document_service.export_cover_letter_docx(
+        user.client, user.id, doc_id, payload.text, payload.company, payload.position
+    )
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Resume not found")
+    docx_bytes, filename = result
+    # RFC 5987 filename* alongside a plain ASCII fallback filename= - the candidate's name can
+    # contain characters (accents, CJK, ...) the legacy filename= param can't carry safely.
+    ascii_fallback = filename.encode("ascii", "ignore").decode("ascii") or "Cover Letter.docx"
+    disposition = f"attachment; filename=\"{ascii_fallback}\"; filename*=UTF-8''{quote(filename)}"
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": disposition},
+    )

@@ -8,7 +8,6 @@ Two jobs, deliberately kept apart because they have opposite rules about inventi
    write a new line after the candidate has said, in their own words, that they have that
    experience - and every word of the result has to trace back to what they actually said.
 
-Both paths emit the same `ResumeHint` shape so the frontend renders and applies them identically.
 """
 
 import re
@@ -18,63 +17,18 @@ from typing import Literal
 from langchain_core.runnables import RunnableLambda, RunnableParallel
 from pydantic import BaseModel, Field
 
-from app.agents._llm import get_dashscope_llm
+from app.agents._llm import get_dashscope_llm_2
 from app.models.resume_document_model import (
     CoachMessage,
     GapTurnResponse,
     JDGap,
     JDReview,
+    QuantifyCandidate,
     ResumeHint,
 )
 
 _BULLET_PREFIX = re.compile(r"^[•●▪◦‣∙*\-]\s+")
-
-NO_INVENTION_RULE = """
-
-<source_of_truth>
-CRITICAL: The resume is the source of truth.
-
-Never add, infer, upgrade, or assume a skill, technology, tool, framework, platform,
-methodology, domain, certification, metric, achievement, responsibility, or experience
-unless it is explicitly evidenced in the resume.
-
-IMPORTANT SKILL RULE:
-A technology mentioned in the JD but NOT explicitly present in the resume is NOT available
-for a rewrite.
-
-Do NOT infer related technologies:
-- JavaScript does NOT imply TypeScript.
-- Python does NOT imply FastAPI, Django, Flask, or PyTorch.
-- Java does NOT imply Spring or Spring Boot.
-- AWS does NOT imply Azure, GCP, Lambda, S3, etc.
-- SQL does NOT imply PostgreSQL, MySQL, Oracle, etc.
-- React does NOT imply Next.js.
-- Docker does NOT imply Kubernetes.
-- LangChain does NOT imply LangGraph.
-- Machine Learning does NOT imply Deep Learning.
-- REST APIs does NOT imply FastAPI.
-
-If the JD contains a technology that is absent from the resume, do NOT add it to the resume
-and do NOT rewrite an existing skill to imply it.
-
-Instead, treat it as a GAP that requires user confirmation through the gap interview.
-
-Example:
-Resume: "Programming Languages: Python, JavaScript, Java"
-JD: "TypeScript or JavaScript"
-WRONG:
-"Programming Languages: Python, JavaScript, TypeScript, Java"
-because TypeScript was not confirmed.
-
-CORRECT:
-"Programming Languages: Python, JavaScript, Java"
-and identify TypeScript as a potential gap.
-
-The candidate must explicitly confirm hands-on experience before a missing JD skill can ever
-be proposed as a new resume skill or bullet.
-</source_of_truth>
-"""
-
+_HAS_DIGIT = re.compile(r"\d")
 
 EVAL_PROMPT = """
 <role>
@@ -99,6 +53,24 @@ how well the resume already matches the role.
 <evaluation>
 
 <match_score>
+Score using this method:
+
+1. From the job description, separate the required (must-have) qualifications from the
+   preferred (nice-to-have) ones.
+2. For each list, judge what fraction the resume already demonstrates with real evidence:
+   required_coverage = (required items the resume evidences) / (total required items)
+   preferred_coverage = (preferred items the resume evidences) / (total preferred items)
+3. Combine them: match_score = round(required_coverage * 70 + preferred_coverage * 30)
+4. Only count an item as covered when the resume shows it - not when the candidate could
+   plausibly pick it up.
+
+Use these bands to sanity-check the number you land on, not as a label to return:
+- 90-100: the resume already demonstrates nearly everything the role asks for
+- 75-89: strong match with a few gaps
+- 60-74: solid overlap but real gaps remain
+- 50-59: a stretch - meaningful gaps in required qualifications
+- Below 50: the resume does not yet demonstrate most of what the role requires
+
 Give a score from 0-100 based only on evidence already present in the resume.
 Do not score the candidate's potential or what they could learn.
 Be honest rather than encouraging.
@@ -119,6 +91,11 @@ Identify capabilities requested by the JD that the resume does not currently sho
 For each gap return:
 - title: 2-6 words using the JD's terminology
 - detail: one sentence explaining what the JD wants and why the resume does not cover it
+- category: one of
+  - "hard_skill" - a tool, language, platform, methodology, or certification
+  - "soft_skill" - an interpersonal or behavioural ability, e.g. leadership, communication
+  - "industry_term" - sector or domain knowledge, e.g. a regulation, business model, or
+    domain vocabulary that isn't itself a tool or a soft skill
 
 Rules:
 - Return at most 5 gaps.
@@ -133,110 +110,14 @@ Rules:
 <rule>Judge only evidence present in the resume.</rule>
 <rule>Do not infer missing skills.</rule>
 <rule>Do not confuse potential with demonstrated experience.</rule>
+<rule>Write the entire response in English, regardless of what language the resume or job
+description is written in.</rule>
 </rules>
 
 <output>
 Return the result using the provided structured output schema.
 </output>
 """
-
-MEANINGFUL_CHANGE_RULE = """
-A rewrite is ONLY valid if it creates a meaningful improvement in ATS relevance, clarity,
-specificity, or evidence.
-
-Do NOT suggest edits that are merely:
-- synonyms
-- shortening or expanding an abbreviation
-- adjective removal/addition
-- hyphenation changes
-- punctuation changes
-- capitalization changes
-- word-order changes with the same meaning
-- replacing a word with a near-synonym
-- removing filler words without improving meaning
-- changing "GenAI-powered" to "GenAI"
-- changing "developed" to "built" when the claim remains equivalent
-- changing "utilized" to "used"
-- changing "implemented" to "developed" without additional information
-- changing "AI-powered" to "AI"
-- changing "cloud-based" to "cloud"
-- changing "RESTful API" to "REST API" unless the JD specifically requires a distinction
-- adding JD keywords that do not describe an existing resume fact.
-
-Examples of INVALID suggestions:
-
-Original:
-"Built a GenAI-powered chatbot using Python."
-
-Invalid:
-"Built a GenAI chatbot using Python."
-
-Why:
-The meaning and ATS value are essentially unchanged.
-
-Invalid:
-"Developed a GenAI-powered chatbot using Python."
-
-Why:
-Only a synonym was substituted.
-
-Invalid:
-"Built a chatbot powered by GenAI using Python."
-
-Why:
-Same information, different wording.
-
-In all of these cases, return NO edit.
-
-A valid rewrite should change the information emphasis or make an existing qualification
-more directly searchable by ATS.
-
-Example of a VALID rewrite:
-
-Original:
-"Built a finance chatbot using Python and LangChain."
-
-JD:
-"Develop AI applications using Python and LangChain."
-
-Valid:
-"Built a finance chatbot using Python and LangChain for conversational AI."
-
-ONLY if "conversational AI" is genuinely supported by the original context.
-
-If the only possible improvement is cosmetic, return NO edit.
-"""
-
-ATS_OPTIMIZATION_RULES = """
-ATS OPTIMIZATION:
-
-Optimize for keyword discoverability while preserving factual accuracy.
-
-Prefer:
-- Standard industry terminology over unusual phrasing.
-- Exact JD terminology when the candidate already has the corresponding experience.
-- Explicit technology names already supported by the resume.
-- Clear action + technology + task + outcome structure.
-- Specific nouns over vague pronouns.
-- Standard spellings of technologies and frameworks.
-- Explicit tool names rather than vague descriptions when the tool is already present.
-- Concise, scannable bullet points.
-- One major accomplishment or responsibility per bullet.
-
-Do NOT:
-- Stuff keywords into bullets unnaturally.
-- Add keywords only because they appear in the JD.
-- Repeat the same keyword multiple times.
-- Convert one technology into another related technology.
-- Infer missing skills.
-- Add generic buzzwords such as "innovative", "dynamic", "cutting-edge",
-  "results-driven", or "passionate" unless already supported.
-- Rewrite every bullet just because the JD contains matching words.
-
-ATS optimization should make existing qualifications easier to detect,
-not manufacture qualifications that the candidate does not have.
-"""
-
 
 REFRAME_PROMPT = """
 <role>
@@ -331,6 +212,11 @@ Avoid:
 - inferred technologies
 - unnecessary rewriting
 </ats_optimization>
+
+<language>
+Write every rewrite in English, regardless of what language the job description or the
+original resume line is written in.
+</language>
 
 </constraints>
 
@@ -525,6 +411,11 @@ Already covered:
 {strengths}
 </avoid_redundancy>
 
+<language>
+Write every question and resume addition in English, regardless of what language the job
+description, resume, or candidate's answers are written in.
+</language>
+
 </constraints>
 
 <status_rules>
@@ -587,9 +478,189 @@ Return the result using the provided structured output schema.
 """
 
 
+QUANTIFY_TURN_PROMPT = """
+<role>
+You are CareerPilot's resume quantification interviewer.
+</role>
+
+<goal>
+This resume bullet reads as an accomplishment but carries no number, so a reader can't tell how
+big the work actually was. Find out from the candidate whether a real number exists, and if it
+does, fold it into the bullet.
+
+If the candidate can't give you a real number, leave the bullet exactly as it is.
+</goal>
+
+<input>
+
+<bullet>
+{bullet_text}
+</bullet>
+
+<conversation>
+{transcript}
+</conversation>
+
+</input>
+
+<constraints>
+
+<source_of_truth>
+In this conversation, the candidate's own answers are the only source of truth for any number
+that ends up in the resume.
+
+NEVER invent, estimate, round, or infer a number the candidate did not state. If they give a
+range, keep the range. If they aren't sure, you may ask once whether they can work it out from
+something they do know (team size, frequency, before/after) - but if they still can't, that is a
+decline, not a guess.
+</source_of_truth>
+
+<question_limit>
+Ask exactly ONE question per turn.
+
+Ask at most 4 questions across the entire conversation.
+Count previous assistant questions in the transcript.
+</question_limit>
+
+<question_strategy>
+Draw questions from these categories, in whichever order fits what the bullet is missing:
+
+<scale>
+How many people, customers, projects, or how large a budget/system was involved?
+</scale>
+
+<impact>
+What changed because of this work? What specifically improved, and for whom?
+</impact>
+
+<comparison>
+What was it before versus after? What was the baseline?
+</comparison>
+
+Ask only about numbers the bullet is actually missing - do not ask about something the
+candidate already answered.
+</question_strategy>
+
+<language>
+Write every question and rewrite in English, regardless of what language the bullet or the
+candidate's answers are written in.
+</language>
+
+</constraints>
+
+<status_rules>
+
+<asking>
+Use when a real number might still be gettable and you haven't hit the question limit.
+Return exactly one next question in message.
+</asking>
+
+<ready>
+Use when the candidate has given at least one real, usable number.
+Rewrite the bullet to include it.
+</ready>
+
+<declined>
+Use when:
+- the candidate says they don't know or don't have a number
+- their answers stay too vague to write a defensible number
+- they ask to skip this
+
+Return no rewrite.
+</declined>
+
+</status_rules>
+
+<rewrite>
+Write one resume bullet.
+
+Rules:
+- past tense, starts with a verb, no "I"
+- keep everything the original bullet already said
+- add only the number(s) the candidate actually gave you
+- do not add any other new claim
+</rewrite>
+
+<output>
+Return the result using the provided structured output schema.
+</output>
+"""
+
+
+class _QuantifyTurnResult(BaseModel):
+    status: str = "asking"
+    message: str = ""
+    rewrite: str = ""
+
+
+def quantify_turn(candidate: QuantifyCandidate, history: list[CoachMessage]) -> GapTurnResponse:
+    """One turn of the quantify interview for a single vague bullet.
+
+    Mirrors `gap_turn`'s asking/ready/declined shape and its refusal to invent - the only
+    difference is what's being confirmed: a number instead of a skill, so there's no resume
+    content or entry list to pass in, just the one bullet in question.
+    """
+    result = (
+        get_dashscope_llm_2(max_tokens=1024)
+        .with_structured_output(_QuantifyTurnResult)
+        .invoke(
+            QUANTIFY_TURN_PROMPT.format(
+                bullet_text=candidate.text,
+                transcript=_format_transcript(history),
+            )
+        )
+    )
+
+    status = result.status if result.status in ("asking", "ready", "declined") else "asking"
+
+    if status == "declined":
+        return GapTurnResponse(
+            status="declined",
+            message=result.message.strip() or "No problem - I'll leave that line as it is.",
+        )
+
+    if status == "asking":
+        return GapTurnResponse(
+            status="asking",
+            message=result.message.strip() or "Do you have a number for that?",
+        )
+
+    rewrite = result.rewrite.strip()
+    if not rewrite or not _is_meaningful_change(candidate.text, rewrite):
+        return GapTurnResponse(
+            status="declined",
+            message=result.message.strip()
+            or "That doesn't give me a real number to add, so I'll leave the line as it is.",
+        )
+
+    return GapTurnResponse(
+        status="ready",
+        # Deliberately not `result.message` here (unlike the asking/declined branches above): the
+        # hint is only an offer, nothing is written to the resume until the candidate clicks the
+        # highlighted line on the preview and hits Accept - so this instruction has to reach the
+        # user every time, not just when the model happens to phrase its own reply that way.
+        message="Added a number to that bullet - click the highlighted line on your resume preview to accept it.",
+        hints=[
+            ResumeHint(
+                id=str(uuid.uuid4()),
+                target=candidate.target,
+                entry_id=candidate.entry_id,
+                entry_label=candidate.entry_label,
+                bullet_index=candidate.bullet_index,
+                mode="replace",
+                original_text=candidate.text,
+                suggested_text=rewrite,
+                reason="You gave a real number for this, so it's now in the bullet.",
+                source="quantify",
+            )
+        ],
+    )
+
+
 class _Gap(BaseModel):
     title: str = ""
     detail: str = ""
+    category: Literal["hard_skill", "soft_skill", "industry_term"] = "hard_skill"
 
 
 class _Evaluation(BaseModel):
@@ -761,6 +832,28 @@ def _build_entry_refs(content: dict) -> list[_EntryRef]:
     return refs
 
 
+def _quantify_candidates(slots: list[_Slot]) -> list[QuantifyCandidate]:
+    """Bullets that read as accomplishments but carry no digit anywhere in the line.
+
+    A plain digit check rather than an LLM call - cheap, deterministic, and the cost of a false
+    positive (a bullet that already has a number in an unusual form) is just an offer the
+    candidate can ignore, not a wrong claim written to the resume.
+    """
+    candidates = [
+        QuantifyCandidate(
+            id=str(uuid.uuid4()),
+            target=slot.target,
+            entry_id=slot.entry_id,
+            entry_label=slot.entry_label,
+            bullet_index=slot.bullet_index,
+            text=slot.text,
+        )
+        for slot in slots
+        if slot.target in ("work_experience", "projects") and not _HAS_DIGIT.search(slot.text)
+    ]
+    return candidates[:3]
+
+
 def _format_slots(slots: list[_Slot]) -> str:
     lines = []
     for i, slot in enumerate(slots):
@@ -833,7 +926,7 @@ def flatten_resume_content(content: dict) -> str:
 
 def _evaluate(content: dict, jd_text: str) -> _Evaluation:
     return (
-        get_dashscope_llm(max_tokens=2048)
+        get_dashscope_llm_2(max_tokens=2048)
         .with_structured_output(_Evaluation)
         .invoke(EVAL_PROMPT.format(jd_text=jd_text, resume_text=flatten_resume_content(content)))
     )
@@ -843,15 +936,12 @@ def _reframe(slots: list[_Slot], jd_text: str) -> _ReframeResult:
     if not slots:
         return _ReframeResult()
     return (
-        get_dashscope_llm(max_tokens=4096)
+        get_dashscope_llm_2(max_tokens=4096)
         .with_structured_output(_ReframeResult)
         .invoke(
             REFRAME_PROMPT.format(
                 jd_text=jd_text,
                 slot_text=_format_slots(slots),
-                no_invention_rule=NO_INVENTION_RULE,
-                meaningful_change_rule=MEANINGFUL_CHANGE_RULE,
-                ats_optimization_rules=ATS_OPTIMIZATION_RULES,
             )
         )
     )
@@ -866,9 +956,12 @@ def review(content: dict, jd_text: str) -> JDReview:
     than the sum (same pattern as app/agents/orchestrator.py).
     """
     slots = _build_slots(content)
+    # Reframe suggestions only make sense for Work Experience and Projects bullets - the
+    # Personal Statement and Skills slots are excluded
+    reframe_slots = [slot for slot in slots if slot.target in ("work_experience", "projects")]
     results = RunnableParallel(
         evaluation=RunnableLambda(lambda _: _evaluate(content, jd_text)),
-        reframes=RunnableLambda(lambda _: _reframe(slots, jd_text)),
+        reframes=RunnableLambda(lambda _: _reframe(reframe_slots, jd_text)),
     ).invoke({})
 
     evaluation: _Evaluation = results["evaluation"]
@@ -880,28 +973,25 @@ def review(content: dict, jd_text: str) -> JDReview:
     # dropped rather than applied twice.
     consumed_slots: set[int] = set()
     for edit in reframes.edits:
-        if edit.slot in consumed_slots or not 0 <= edit.slot < len(slots):
+        if edit.slot in consumed_slots or not 0 <= edit.slot < len(reframe_slots):
             continue
-        slot = slots[edit.slot]
+        slot = reframe_slots[edit.slot]
         suggested = _BULLET_PREFIX.sub("", edit.suggested_text.strip())
-        if not suggested:
+        if not suggested or suggested.strip().lower() == "no edit":
             continue
 
         other_slot = edit.merge_with_slot
-        # Merging only makes sense between two bullets of the same description (applying it
-        # goes through the entry's own bullet list - see applyToDescription in lib/api.ts),
-        # which rules out skills and the summary along with a merge target from another entry.
         if (
             edit.change_type == "merge"
             and other_slot is not None
             and other_slot != edit.slot
             and other_slot not in consumed_slots
-            and 0 <= other_slot < len(slots)
+            and 0 <= other_slot < len(reframe_slots)
             and slot.target in ("work_experience", "projects")
-            and slots[other_slot].target == slot.target
-            and slots[other_slot].entry_id == slot.entry_id
+            and reframe_slots[other_slot].target == slot.target
+            and reframe_slots[other_slot].entry_id == slot.entry_id
         ):
-            other = slots[other_slot]
+            other = reframe_slots[other_slot]
             consumed_slots.add(edit.slot)
             consumed_slots.add(other_slot)
             hints.append(
@@ -944,11 +1034,17 @@ def review(content: dict, jd_text: str) -> JDReview:
         match_score=max(0, min(100, evaluation.match_score)),
         strengths=[s.strip() for s in evaluation.strengths if s.strip()],
         gaps=[
-            JDGap(id=str(uuid.uuid4()), title=gap.title.strip(), detail=gap.detail.strip())
+            JDGap(
+                id=str(uuid.uuid4()),
+                title=gap.title.strip(),
+                detail=gap.detail.strip(),
+                category=gap.category,
+            )
             for gap in evaluation.gaps
             if gap.title.strip()
         ],
         hints=hints,
+        quantify_candidates=_quantify_candidates(slots),
     )
 
 
@@ -967,7 +1063,7 @@ def gap_turn(
     """
     refs = _build_entry_refs(content)
     result = (
-        get_dashscope_llm(max_tokens=3072)
+        get_dashscope_llm_2(max_tokens=3072)
         .with_structured_output(_GapTurnResult)
         .invoke(
             GAP_TURN_PROMPT.format(
@@ -977,7 +1073,6 @@ def gap_turn(
                 entry_text=_format_entry_refs(refs),
                 jd_text=jd_text,
                 transcript=_format_transcript(history),
-                no_invention_rule=NO_INVENTION_RULE,
             )
         )
     )
