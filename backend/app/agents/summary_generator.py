@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from app.agents._llm import get_openrouter_llm
+from app.agents._llm import get_dashscope_llm
 from app.agents.jd_coach import NO_INVENTION_RULE, flatten_resume_content
 
 PROMPT = """
@@ -68,7 +68,7 @@ def generate_summary(content: dict) -> str:
     """
     resume_text = flatten_resume_content(content)
     result = (
-        get_openrouter_llm(max_tokens=512)
+        get_dashscope_llm(max_tokens=512)
         .with_structured_output(_Summary)
         .invoke(PROMPT.format(no_invention_rule=NO_INVENTION_RULE, resume_text=resume_text))
     )

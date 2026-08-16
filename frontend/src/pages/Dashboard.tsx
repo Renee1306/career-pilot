@@ -9,7 +9,6 @@ import {
   IconSparkle,
   IconTrophy,
 } from "../components/Icons";
-import OnboardingGuide from "../components/OnboardingGuide";
 import { useAuth } from "../context/AuthContext";
 import {
   listApplications,
@@ -56,11 +55,6 @@ export default function Dashboard() {
   const [resumeDocs, setResumeDocs] = useState<ResumeDocumentListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Mirrors session.user.user_metadata so dismissing hides the card immediately, without
-  // waiting on the updateUser round trip that OnboardingGuide fires in the background.
-  const [guideDismissed, setGuideDismissed] = useState(
-    () => session?.user.user_metadata?.onboarding_dismissed === true
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -164,12 +158,6 @@ export default function Dashboard() {
         <p className="alert" style={{ marginTop: 16 }}>
           {error}
         </p>
-      )}
-
-      {!guideDismissed && (
-        <div style={{ marginTop: 20 }}>
-          <OnboardingGuide onDismiss={() => setGuideDismissed(true)} />
-        </div>
       )}
 
       <section className="stat-grid">

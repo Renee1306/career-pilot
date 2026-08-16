@@ -4,8 +4,10 @@ An AI career copilot that covers the whole job hunt loop: decode a job descripti
 resume against it, track every application, and prep for the interview — grounded in your actual
 resume, not invented experience.
 
+**Live demo**: https://career-pilot-my.pages.dev/
+
 **Live backend**: https://career-pilot-q180.onrender.com (free tier — the first request after
-15 minutes idle takes ~30-60s to wake up)
+15 minutes idle takes ~30-60s to wake up, which the demo above will hit on its first load too)
 
 ## What it does
 
@@ -20,10 +22,11 @@ resume, not invented experience.
 - **Application tracker** — a drag-and-drop Kanban board (Applied / Interview / Offer / Rejected)
   with a typed, editable timeline per application (interviews, case studies, deadlines,
   attachments). Connect Gmail and the board files updates from your inbox automatically.
-- **Interview prep** — HR and technical question sets generated from the job description and your
-  resume, plus an AI-generated company snapshot (culture, values, likely interview themes).
-- **Dashboard** — pipeline stats, recent activity, and quick actions, with a dismissible
-  first-time-user guide.
+- **Interview prep** — behavioural and hiring-manager question sets generated from the job
+  description and your resume (each question comes with what a strong answer should cover, not a
+  scripted answer), plus an AI-generated company snapshot (culture, values, likely interview
+  themes).
+- **Dashboard** — pipeline stats, recent activity, and quick actions.
 - **Auth** — email/password or Google/GitHub OAuth via Supabase Auth; every backend request is
   scoped to the caller's own JWT, so Postgres RLS enforces per-user data isolation end to end.
 
@@ -32,7 +35,7 @@ resume, not invented experience.
 | | |
 |---|---|
 | **Frontend** | React 19, TypeScript, Vite, react-router-dom, `@supabase/supabase-js`. No UI framework — a small hand-rolled design system. |
-| **Backend** | Python, FastAPI, LangChain, Gemini (`gemini-flash-lite-latest`) for structured extraction, NVIDIA Nemotron via OpenRouter for the chatbot/resume-rewrite agents. |
+| **Backend** | Python, FastAPI, LangChain. Two interchangeable structured-output providers: Gemini (`gemini-flash-lite-latest`) for interview prep, resume import, and translation; Alibaba DashScope serving DeepSeek (`deepseek-v4-flash-0731`) for JD analysis, the resume JD-coach, summaries, company snapshots, and email classification. |
 | **Data** | Supabase (Postgres + Auth + Storage), Row Level Security on every table. |
 | **Deployment** | Render (backend), Cloudflare Pages (frontend). |
 
@@ -66,6 +69,7 @@ agent prompts, auth model, and the reasoning behind non-obvious decisions.
 - Python 3.12
 - A [Supabase](https://supabase.com) project (Postgres + Auth + Storage)
 - A [Google AI Studio](https://ai.studio) API key (Gemini)
+- An [Alibaba Model Studio](https://modelstudio.console.alibabacloud.com) (DashScope) API key
 
 ### Backend
 
@@ -74,7 +78,7 @@ cd backend
 python -m venv .venv
 ./.venv/Scripts/activate      # Windows; use ./.venv/bin/activate on macOS/Linux
 pip install -r requirements.txt
-cp .env.example .env          # fill in SUPABASE_URL, SUPABASE_ANON_KEY, GEMINI_API_KEY at minimum
+cp .env.example .env          # fill in SUPABASE_URL, SUPABASE_ANON_KEY, GEMINI_API_KEY, ALIBABA_API_KEY at minimum
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -97,8 +101,8 @@ The app is now running at `http://localhost:5173`, talking to the API at `http:/
 |---|---|---|
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Yes | Supabase project connection |
 | `SUPABASE_SERVICE_ROLE_KEY` | For Gmail sync | Bypasses RLS only for the OAuth callback, which has no user JWT yet |
-| `GEMINI_API_KEY` | Yes | Structured extraction agents (resume parsing, job analysis, interview Q&A) |
-| `OPENROUTER_API_KEY` | For chatbot & resume AI-enhance | NVIDIA Nemotron via OpenRouter |
+| `GEMINI_API_KEY` | Yes | Interview Q&A, resume import, and translation agents |
+| `ALIBABA_API_KEY` | Yes | DashScope (DeepSeek) — job analysis, resume JD-coach, resume summaries, company snapshot, email classification |
 | `CORS_ORIGINS` | Yes | Comma-separated list of allowed frontend origins |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | For Gmail sync | Google Cloud OAuth client |
 | `FRONTEND_URL` | For Gmail sync | Where to redirect after the OAuth callback |
@@ -132,7 +136,12 @@ frontend URL — Gmail sync and any cross-origin request will fail against a `lo
 
 ## Testing
 
-`backend/tests/test_health.py` is the only automated test — it exists to prove the app boots and
-the dependency graph imports cleanly. Everything else has been verified through real, manual
-end-to-end runs against the actual API and a real Supabase project rather than mocks; see
-`PROJECT_CONTEXT.md` for why.
+**Backend**: `cd backend && pytest` runs the suite in `backend/tests/` — unit tests for pure logic
+(bullet-splitting and per-bullet hint addressing in the JD coach, Gmail timezone handling, the
+legacy skills-schema migration, typical-day helpers), router tests for jobs/applications/resume
+endpoints (mocked at the service boundary), an auth-middleware test, and a health check. The
+agents' own LLM calls (`jd_coach.review`, `gap_turn`, and the rest) are deliberately left out of
+this suite and verified through real end-to-end runs against the actual API and a live Supabase
+project instead — see `PROJECT_CONTEXT.md` for why.
+
+**Frontend**: no automated tests yet.
