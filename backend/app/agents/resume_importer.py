@@ -4,7 +4,7 @@ import uuid
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
-from app.agents._llm import get_gemini_llm_2
+from app.agents._llm import get_gemini_llm
 from app.models.resume_document_model import (
     AwardEntry,
     BasicInfo,
@@ -293,7 +293,7 @@ def to_resume_content(parsed: ImportedResume) -> ResumeContent:
 def import_resume(file_bytes: bytes, mime_type: str) -> ResumeContent:
     """Multimodal (PDF/image) extraction straight into the Resume Builder's document shape.
     """
-    structured_llm = get_gemini_llm_2().with_structured_output(ImportedResume)
+    structured_llm = get_gemini_llm().with_structured_output(ImportedResume)
     encoded = base64.b64encode(file_bytes).decode("utf-8")
     message = HumanMessage(
         content=[

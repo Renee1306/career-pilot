@@ -11,11 +11,6 @@ def get_gemini_llm() -> ChatGoogleGenerativeAI:
         model="gemini-3.5-flash-lite", 
         api_key=settings.gemini_api_key)
 
-def get_gemini_llm_2() -> ChatGoogleGenerativeAI:
-    return ChatGoogleGenerativeAI(
-        model="gemini-3.1-flash-lite", 
-        api_key=settings.gemini_api_key)
-
 def get_dashscope_llm(model: str = "deepseek-v4-flash-0731", max_tokens: int = 1024) -> ChatOpenAI:
     """Alibaba Model Studio (DashScope) is an OpenAI-compatible endpoint - point base_url at it
     and use its model slug.

@@ -18,14 +18,16 @@ resume, not invented experience.
 - **Resume Builder** — a structured, from-scratch resume editor: five templates, a curated font
   set, photo upload, AI-assisted enhancement, and print-perfect A4 export. Import an existing
   resume (PDF/image) to auto-populate it, or paste a job description and review suggested edits
-  one at a time — nothing changes until you accept it.
+  one at a time — nothing changes until you accept it. Generate a cover letter tailored to the
+  job description and grounded in the resume's actual content, and export it as a formatted Word
+  document.
 - **Application tracker** — a drag-and-drop Kanban board (Applied / Interview / Offer / Rejected)
   with a typed, editable timeline per application (interviews, case studies, deadlines,
   attachments). Connect Gmail and the board files updates from your inbox automatically.
 - **Interview prep** — behavioural and hiring-manager question sets generated from the job
   description and your resume (each question comes with what a strong answer should cover, not a
-  scripted answer), plus an AI-generated company snapshot (culture, values, likely interview
-  themes).
+  scripted answer), plus an AI-generated company snapshot (what the company does, industry, scale,
+  culture, and core values) to orient you before interviews.
 - **Dashboard** — pipeline stats, recent activity, and quick actions.
 - **Auth** — email/password or Google/GitHub OAuth via Supabase Auth; every backend request is
   scoped to the caller's own JWT, so Postgres RLS enforces per-user data isolation end to end.
@@ -35,7 +37,7 @@ resume, not invented experience.
 | | |
 |---|---|
 | **Frontend** | React 19, TypeScript, Vite, react-router-dom, `@supabase/supabase-js`. No UI framework — a small hand-rolled design system. |
-| **Backend** | Python, FastAPI, LangChain. Two interchangeable structured-output providers: Gemini (`gemini-flash-lite-latest`) for interview prep, resume import, and translation; Alibaba DashScope serving DeepSeek (`deepseek-v4-flash-0731`) for JD analysis, the resume JD-coach, summaries, company snapshots, and email classification. |
+| **Backend** | Python, FastAPI, LangChain. Two interchangeable structured-output providers: Gemini (`gemini-3.1-flash-lite`) for interview prep, resume import, company snapshots, and translation; Alibaba DashScope serving DeepSeek (`deepseek-v4-flash-0731`, stepping up to `deepseek-v4-pro-0813` for the resume JD-coach) for JD analysis, summaries, cover letters, and email classification. `python-docx` renders the cover letter export. |
 | **Data** | Supabase (Postgres + Auth + Storage), Row Level Security on every table. |
 | **Deployment** | Render (backend), Cloudflare Pages (frontend). |
 

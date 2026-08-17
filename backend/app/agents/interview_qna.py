@@ -1,4 +1,4 @@
-from app.agents._llm import get_gemini_llm_2
+from app.agents._llm import get_gemini_llm
 from app.models.interview_model import InterviewQnA, QnARoundType
 
 ROUND_FOCUS = {
@@ -251,7 +251,7 @@ def generate_interview_qna(
     round_type: QnARoundType,
     company_context: str = "",
 ) -> InterviewQnA:
-    structured_llm = get_gemini_llm_2().with_structured_output(InterviewQnA)
+    structured_llm = get_gemini_llm().with_structured_output(InterviewQnA)
     prompt = INTERVIEW_QA_PROMPT.format(
         round_focus=ROUND_FOCUS.get(round_type, ROUND_FOCUS["behavioural"]),
         job_text=job_text,
