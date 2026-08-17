@@ -444,7 +444,11 @@ function CoachCard({
               {message.content}
             </div>
           ))}
-          {state.busy && <div className="jdc-msg-bot jdc-msg-typing">Connecting to agent…</div>}
+          {/* Only the very first turn is a cold start worth announcing - once the thread is going,
+              the disabled composer is enough of a "wait" signal. */}
+          {state.busy && state.history.length === 0 && (
+            <div className="jdc-msg-bot jdc-msg-typing">Connecting to agent…</div>
+          )}
           <div ref={endRef} />
         </div>
       )}
